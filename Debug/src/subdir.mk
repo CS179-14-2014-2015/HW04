@@ -6,17 +6,20 @@
 CPP_SRCS += \
 ../src/ASEC-Shooter.cpp \
 ../src/Background.cpp \
-../src/Game.cpp 
+../src/Game.cpp \
+../src/Player.cpp 
 
 OBJS += \
 ./src/ASEC-Shooter.o \
 ./src/Background.o \
-./src/Game.o 
+./src/Game.o \
+./src/Player.o 
 
 CPP_DEPS += \
 ./src/ASEC-Shooter.d \
 ./src/Background.d \
-./src/Game.d 
+./src/Game.d \
+./src/Player.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

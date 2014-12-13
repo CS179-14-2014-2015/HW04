@@ -29,6 +29,4 @@ public:
 	void update();				//scroll the background and update the window
 };
 
-
-
 #endif /* BACKGROUD_H_ */

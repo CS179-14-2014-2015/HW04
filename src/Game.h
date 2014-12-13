@@ -17,6 +17,7 @@
 #include "Boss.h"
 */
 #include "Background.h"
+#include "Player.h"
 
 using namespace sf;
 
@@ -25,8 +26,9 @@ class Game {
 protected:
 	RenderWindow window;				//the game window
 	Event event;						//for user inputs
-	/*
 	Player player; 						//the player
+	Clock clock;							//the clock of the game
+	/*
 	vector<PlayerBullet> playerBullets;	//all the player bullet at a given time public:
 	Boss boss;							//Bruce springsteen
 	vector<Enemy> enemies;				//all the enemies at a given time
