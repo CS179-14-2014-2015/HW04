@@ -7,7 +7,8 @@
 
 #include "Game.h"
 
-Game::Game() : window(VideoMode(900, 500), "ASEC Shooter", Style::Close | Style::Titlebar),background(window), player(window){
+Game::Game() : window(VideoMode(900, 500), "ASEC Shooter", Style::Close | Style::Titlebar), background(window),
+				player(window), enemiesManager(window){
 	window.setVerticalSyncEnabled(true);
 }
 
@@ -24,6 +25,7 @@ void Game::update(){
 	//update the drawables
 	background.update();
 	player.update();
+	enemiesManager.update(player);
 
 	//display
 	window.display();

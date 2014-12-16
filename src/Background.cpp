@@ -10,8 +10,10 @@
 Background::Background(RenderWindow& window) : window(window){
 
 	//load the texture, alert if failed
-	if(!texture.loadFromFile("resources/background.jpg"))
-		cout<< "Impossible to load background.png" <<endl;
+	if(!texture.loadFromFile("resources/background.jpg")) {
+		cout<< "Impossible to load background.jpg" <<endl;
+		exit(EXIT_FAILURE);
+	}
 
 	//load the texture in the sprites
 	sprite1.setTexture(texture);
@@ -23,8 +25,9 @@ Background::Background(RenderWindow& window) : window(window){
 void Background::update() {
 
 	//move the background
-	sprite1.move(-2, 0);
-	sprite2.move(-2, 0);
+	const int speed = 5;
+	sprite1.move(-speed, 0);
+	sprite2.move(-speed, 0);
 
 	//replace the background when it repeats
 	if(sprite2.getPosition().x <= 0) {

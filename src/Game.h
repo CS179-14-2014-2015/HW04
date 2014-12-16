@@ -10,14 +10,9 @@
 
 #include <SFML/Graphics.hpp>
 #include <vector>
-/*
-#include "Player.h"
-#include "PlayerBullet.h"
-#include "EnemyBullet.h"
-#include "Boss.h"
-*/
 #include "Background.h"
 #include "Player.h"
+#include "EnemiesManager.h"
 
 using namespace sf;
 
@@ -27,13 +22,8 @@ protected:
 	RenderWindow window;				//the game window
 	Event event;						//for user inputs
 	Player player; 						//the player
-	Clock clock;							//the clock of the game
-	/*
-	vector<PlayerBullet> playerBullets;	//all the player bullet at a given time public:
-	Boss boss;							//Bruce springsteen
-	vector<Enemy> enemies;				//all the enemies at a given time
-	vector<EnemyBullet>	enemiesBullets;	//all the bullets that can hit the player
-	*/
+	Clock clock;						//the clock of the game
+	EnemiesManager enemiesManager;		//handle all the enemies of the game
 	Background background;
 
 public:

@@ -9,50 +9,42 @@
 #define PLAYER_H_
 
 #include <iostream>
-#include <list>
-/*
-#include "PlayerBullet.h"
-*/
-
 #include <SFML/Graphics.hpp>
+#include <list>
+
+#include "Tools.h"
+#include "Bullet.h"
 
 using namespace sf;
 using namespace std;
 
-class Player {
+class Player : public Sprite {
+
 protected:
 	unsigned int score;				//contains the score of the player, increase when touched
-	const int speed;			//the speed of the player
-	Texture texture;					//contains the texture of the player
-	Sprite sprite;						//the sprite of the player
+	Texture playerTexture;				//contains the texture of the player
+	Texture bulletTexture;				//contains the texture of the bullets
 	RenderWindow &window;				//the application window
 	bool isMovingUp;					//used to know how to move the player, switch on user input
 	bool isMovingDown;					//used to know how to move the player, switch on user input
 	bool isMovingLeft;					//used to know how to move the player, switch on user input
 	bool isMovingRight;					//used to know how to move the player, switch on user input
-/*
-	list<PlayerBullet> playerBullets	//the player's bullets
-	list<EnemyBullet> enemyBullets	//the bullets that can hit the player
-*/
+	unsigned int frameCounter;			//count the number of frame elapsed
+	list<Bullet> bullets;				//contains the bullets of the player
 
 public:
-	Player(RenderWindow &window);				//initialize the player
-	void update();								//update the player
-	bool isTop();								//test if the player hit the top of the window
-	bool isBottom();							//test if the player hit the bottom of the window
-	bool isLeft();								//test if the player hit the left of the window
-	bool isRight();							//test if the player hit the right of the window
-	void fire();								//fire a bullet, update playerBullets
-	void blink();								//blink animation when the player is touched
+	Player(RenderWindow &window); 							//initialise the player
+	void update();											//update the player
+	void blink();											//blink animation when the player is touched
 	void setIsMovingUp(bool isMovingUp);
 	void setIsMovingDown(bool isMovingDown);
 	void setIsMovingLeft(bool isMovingLeft);
 	void setIsMovingRight(bool isMovingRight);
+	void fire();											//create a new bullet
+	list<Bullet>& getBullets();
+	void clearBullets();									//clear obsolete bullets
+	void moveBullets();									//move the bullets
 
-	/*
-	bool isTouched(enemyBullets);		//check if the player is touched, update the score and blink
-	 */
-}
-;
+};
 
 #endif /* PLAYER_H_ */
