@@ -1,10 +1,5 @@
-/*This source code copyrighted by Lazy Foo' Productions (2004-2014)
-and may not be redistributed without written permission.*/
 
-//things I removed functions: setBlendMode, setAlpha, setColor
-//the timer class
-
-/**www.opengameart.org source of spaceship**/
+/**www.opengameart.org source of spacePlayer**/
 //Using SDL, SDL_image, standard IO, and strings
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -48,45 +43,46 @@ class LTexture
 		int mHeight;
 };
 
-//The ship that will move around on the screen
-class ship
+//The Player that will move around on the screen
+class Player
 {
     public:
-		//The dimensions of the ship
-		static const int ship_WIDTH = 20;
-		static const int ship_HEIGHT = 20;
+		//The dimensions of the Player
+		static const int PLAYER_WIDTH = 20;
+		static const int PLAYER_HEIGHT = 20;
 
 		//Initializes the variables
-		ship();
+		Player();
 
-		//Takes key presses and adjusts the ship's velocity
+		//Takes key presses and adjusts the Player's velocity
 		void handleEvent( SDL_Event* e );
 
-		//Shows the ship on the screen
+		//Shows the Player on the screen
 		void render();
 
     private:
-		//The X and Y offsets of the ship
-		int mPosX, mPosY;
+		//The X and Y offsets of the Player
+		int posX, posY;
 
 		//mouse position
 		int mouseX, mouseY;
 };
-class comet
+class Enemy
 {
     public:
-        static const int COMET_WIDTH = 20;
-		static const int COMET_HEIGHT = 20;
+        static const int ENEMY_WIDTH = 20;
+		static const int ENEMY_HEIGHT = 20;
 
 		//Initializes the variables
-		comet();
+		Enemy();
 
-        //Shows the comet on the screen
+        //Shows the Enemy on the screen
 		void render();
 
     private:
-		//comet position
-		int cometX, cometY;
+		//Enemy position
+		int posX, posY, rotation, posXDisplacement, enemyCounter, direction;
+
 };
 //Starts up SDL and creates window
 bool init();
@@ -104,9 +100,10 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 //Scene textures
-LTexture gshipTexture;
-LTexture cometTexture;
+LTexture gPlayerTexture;
+LTexture gEnemyTexture;
 
+//*************Start of LTexture definitions**************
 LTexture::LTexture()
 {
 	//Initialize
@@ -200,80 +197,76 @@ int LTexture::getHeight()
 	return mHeight;
 }
 
-
-ship::ship()
+//*************Start of Player definitions**************
+Player::Player()
 {
     //Initialize the offsets
-    mPosX = 0;
-    mPosY = 0;
+    posX = 0;
+    posY = 0;
 
     mouseX = 0;
     mouseY = 0;
 
 }
 
-comet::comet()
-{
-	//initial position
-	cometX = 0;
-	cometY = 0;
-}
-
-void ship::handleEvent( SDL_Event* e )
+void Player::handleEvent( SDL_Event* e )
 {
     //hide sthe cursor
     SDL_ShowCursor(SDL_DISABLE);
     //If mouse is moving
     if(e->type == SDL_MOUSEMOTION )
     {
-     /*****gives the position of the mouse*****/
+    //Position of the mouxe
         mouseX=e->motion.x;
         mouseY=e->motion.y;
 
-     /*****prevents the ball from going out of the screen*****/
-    //If the ship went too far to the left or right
-    if( ( mouseX < 0 ) || ( mouseX + ship_WIDTH > SCREEN_WIDTH ) )
+    //Prevents the player from moving outside the screen 
+    //If the Player went too far to the left or right
+    if( ( mouseX < 0 ) || ( mouseX + PLAYER_WIDTH > SCREEN_WIDTH ) )
     {
         mouseX = 0;
-        mouseX = SCREEN_WIDTH-ship_WIDTH;
+        mouseX = SCREEN_WIDTH-PLAYER_WIDTH;
     }
 
-    //If the ship went too far up or down
-    if( ( mouseY < 0 ) || ( mouseY + ship_HEIGHT > SCREEN_HEIGHT ) )
+    //If the Player went too far up or down
+    if( ( mouseY < 0 ) || ( mouseY + PLAYER_HEIGHT > SCREEN_HEIGHT ) )
     {
         mouseY = 0;
-        mouseY = SCREEN_HEIGHT-ship_HEIGHT;
+        mouseY = SCREEN_HEIGHT-PLAYER_HEIGHT;
     }
     }
 
 }
 
-
-void ship::render()
+void Player::render()
 {
-    //Show the ship and renders the ball directly to the position of the mouse
-	gshipTexture.render( mouseX, mouseY );
+    //Show the Player and renders the ball directly to the position of the mouse
+	gPlayerTexture.render( mouseX, mouseY );
 }
 
-void comet::render()
+//*************Start of Enemy definitions**************
+Enemy::Enemy()
 {
-    //renders the comet to the screen
-	cometX += 1;
-	cometY += 1;
-	if( ( cometX < 0 ) || ( cometX + COMET_WIDTH > SCREEN_WIDTH ) )
-    {
-        cometX += 10;
-        cometX -= 90;
-    }
+	//initial position
+	posY = 0;
+	posXDisplacement = 0;
+	rotation = 0;
+	enemyCounter = rand() % 5 + 1;
+	direction = rand() % 3 - 1;
+}
 
-    //If the ship went too far up or down
-    if( ( cometY < 0 ) || ( cometY + COMET_HEIGHT > SCREEN_HEIGHT ) )
-    {
-        cometY += 11;
-        cometY -= 90;
-    }
-
-	cometTexture.render(cometX, cometY );
+void Enemy::render()
+{
+	SDL_RendererFlip flipType = SDL_FLIP_NONE;
+	
+	//Clear screen
+	SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+	for(int i = 0; i < enemyCounter; i++){
+		rotation += direction * 1;
+		gEnemyTexture.render( posXDisplacement, posY, NULL, rotation, NULL, flipType);
+		posXDisplacement += 100;
+	}	
+	posXDisplacement = 0;
 }
 
 bool init()
@@ -296,7 +289,7 @@ bool init()
 		}
 
 		//Create window
-		gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+		gWindow = SDL_CreateWindow( "Bullet Hell", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
 		if( gWindow == NULL )
 		{
 			printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
@@ -335,15 +328,15 @@ bool loadMedia()
 	//Loading success flag
 	bool success = true;
 
-	//Load ship texture
-	if( !gshipTexture.loadFromFile( "Images/index.bmp" ) )
+	//Load Player texture
+	if( !gPlayerTexture.loadFromFile( "Images/player.png" ) )
 	{
-		printf( "Failed to load ship texture!\n" );
+		printf( "Failed to load Player texture!\n" );
 		success = false;
 	}
-    if( !cometTexture.loadFromFile( "Images/dot.bmp" ) )
+    if( !gEnemyTexture.loadFromFile( "Images/enemy.png" ) )
 	{
-		printf( "Failed to load ship texture!\n" );
+		printf( "Failed to load Enemy texture!\n" );
 		success = false;
 	}
 	return success;
@@ -352,7 +345,8 @@ bool loadMedia()
 void close()
 {
 	//Free loaded images
-	gshipTexture.free();
+	gPlayerTexture.free();
+	gEnemyTexture.free();
 
 	//Destroy window
 	SDL_DestroyRenderer( gRenderer );
@@ -387,9 +381,20 @@ int main( int argc, char* args[] )
 			//Event handler
 			SDL_Event e;
 
-			//The ship that will be moving around on the screen
-			ship ship;
-            comet comet;
+			//The Player that will be moving around on the screen
+			Player player;
+            Enemy enemy;
+
+            //Degree of Rotation
+          	/*double degrees = 0; 
+
+            int xDisplacement = 0;
+			int enemyCounter = rand() % 5 + 1;
+			int direction = rand() % 3 - 1;*/
+
+			//Flip type
+			//SDL_RendererFlip flipType = SDL_FLIP_NONE;
+
 			//While application is running
 			while( !quit )
 			{
@@ -403,17 +408,24 @@ int main( int argc, char* args[] )
 						if(e.key.keysym.sym == SDLK_END)
                             quit = true;
 					}
-                    //Handle input for the ship
-					ship.handleEvent( &e );
+                    //Handle input for the Player
+					player.handleEvent( &e );
 				}
 
 				//Clear screen
 				SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
 				SDL_RenderClear( gRenderer );
 
+   				//degrees += direction * 1;
+				/*for(int i = 0; i < enemyCounter; i++){
+					gEnemyTexture.render( xDisplacement, ( SCREEN_HEIGHT - gEnemyTexture.getHeight() ) / 2, NULL, degrees, NULL, flipType);
+					xDisplacement += 100;
+				}
+				xDisplacement = 0;*/
+
 				//Render objects
-				ship.render();
-                comet.render();
+				player.render();
+                enemy.render();
 				//Update screen
 				SDL_RenderPresent( gRenderer );
 			}
@@ -422,7 +434,6 @@ int main( int argc, char* args[] )
 
 	//Free resources and close SDL
 	close();
-
 	return 0;
 }
 /**Notes**/
