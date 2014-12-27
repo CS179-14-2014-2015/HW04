@@ -27,8 +27,16 @@ class LTexture
 		//Loads image at specified path
 		bool loadFromFile( std::string path );
 
+		#ifdef _SDL_TTF_H
+		//Creates image from font string
+		bool loadFromRenderedText( std::string textureText, SDL_Color textColor );
+		#endif
+
 		//Deallocates texture
 		void free();
+
+		//Set color modulation
+		void setColor( Uint8 red, Uint8 green, Uint8 blue );
 
 		//Renders texture at given point
 		void render( int x, int y, SDL_Rect* clip = NULL, double angle = 0.0, SDL_Point* center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE );
@@ -52,29 +60,12 @@ class LTimer
 		//Initializes variables
 		LTimer();
 
-		//The various clock actions
-		void start();
-		void stop();
-		void pause();
-		void unpause();
-
 		//Gets the timer's time
 		Uint32 getTicks();
-
-		//Checks the status of the timer
-		bool isStarted();
-		bool isPaused();
 
     private:
 		//The clock time when the timer started
 		Uint32 mStartTicks;
-
-		//The ticks stored when the timer was paused
-		Uint32 mPausedTicks;
-
-		//The timer status
-		bool mPaused;
-		bool mStarted;
 };
 
 class Player
@@ -136,9 +127,13 @@ SDL_Window* gWindow = NULL;
 //The window renderer
 SDL_Renderer* gRenderer = NULL;
 
+//Globally used font
+TTF_Font* gFont = NULL;
+
 //Scene textures
 LTexture gPlayerTexture;
 LTexture gEnemyTexture;
+LTexture gTimeTextTexture;
 
 //*************Start of LTexture definitions**************
 LTexture::LTexture()
@@ -196,6 +191,43 @@ bool LTexture::loadFromFile( std::string path )
 	return mTexture != NULL;
 }
 
+#ifdef _SDL_TTF_H
+bool LTexture::loadFromRenderedText( std::string textureText, SDL_Color textColor )
+{
+	//Get rid of preexisting texture
+	free();
+
+	//Render text surface
+	SDL_Surface* textSurface = TTF_RenderText_Solid( gFont, textureText.c_str(), textColor );
+	if( textSurface != NULL )
+	{
+		//Create texture from surface pixels
+        mTexture = SDL_CreateTextureFromSurface( gRenderer, textSurface );
+		if( mTexture == NULL )
+		{
+			printf( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
+		}
+		else
+		{
+			//Get image dimensions
+			mWidth = textSurface->w;
+			mHeight = textSurface->h;
+		}
+
+		//Get rid of old surface
+		SDL_FreeSurface( textSurface );
+	}
+	else
+	{
+		printf( "Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError() );
+	}
+
+	
+	//Return success
+	return mTexture != NULL;
+}
+#endif
+
 void LTexture::free()
 {
 	//Free texture if it exists
@@ -234,6 +266,19 @@ int LTexture::getHeight()
 	return mHeight;
 }
 
+//*************Start of Timer definitions**************
+LTimer::LTimer()
+{
+    //Initialize the variable
+    mStartTicks = 0;
+}
+
+Uint32 LTimer::getTicks(){
+	//The actual timer time
+	Uint32 time = SDL_GetTicks() - mStartTicks;
+    return time;
+}
+
 //*************Start of Player definitions**************
 Player::Player()
 {
@@ -243,7 +288,6 @@ Player::Player()
 
     mouseX = 0;
     mouseY = 0;
-
 }
 
 void Player::handleEvent( SDL_Event* e )
@@ -259,20 +303,19 @@ void Player::handleEvent( SDL_Event* e )
 
     //Prevents the player from moving outside the screen 
     //If the Player went too far to the left or right
-    if( ( mouseX < 0 ) || ( mouseX + PLAYER_WIDTH > SCREEN_WIDTH ) )
-    {
-        mouseX = 0;
-        mouseX = SCREEN_WIDTH-PLAYER_WIDTH;
-    }
+	    if( ( mouseX < 0 ) || ( mouseX + PLAYER_WIDTH > SCREEN_WIDTH ) )
+	    {
+	        mouseX = 0;
+	        mouseX = SCREEN_WIDTH-PLAYER_WIDTH;
+	    }
 
-    //If the Player went too far up or down
-    if( ( mouseY < 0 ) || ( mouseY + PLAYER_HEIGHT > SCREEN_HEIGHT ) )
-    {
-        mouseY = 0;
-        mouseY = SCREEN_HEIGHT-PLAYER_HEIGHT;
+	    //If the Player went too far up or down
+	    if( ( mouseY < 0 ) || ( mouseY + PLAYER_HEIGHT > SCREEN_HEIGHT ) )
+	    {
+	        mouseY = 0;
+	        mouseY = SCREEN_HEIGHT-PLAYER_HEIGHT;
+	    }
     }
-    }
-
 }
 
 void Player::render()
@@ -368,6 +411,12 @@ bool init()
 					printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
 					success = false;
 				}
+				 //Initialize SDL_ttf
+				if( TTF_Init() == -1 )
+				{
+					printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
+					success = false;
+				}
 			}
 		}
 	}
@@ -379,14 +428,27 @@ bool loadMedia()
 {
 	//Loading success flag
 	bool success = true;
+	
+	//Open the font
+	gFont = TTF_OpenFont( "Resources/ostrich-regular.ttf", 28 );
+	if( gFont == NULL )
+	{
+		printf( "Failed to load font! SDL_ttf Error: %s\n", TTF_GetError() );
+		success = false;
+	}
+	else
+	{
+		//Set text color as black
+		SDL_Color textColor = { 0, 0, 0, 255 };
+	}
 
 	//Load Player texture
-	if( !gPlayerTexture.loadFromFile( "Images/player.png" ) )
+	if( !gPlayerTexture.loadFromFile( "Resources/player.png" ) )
 	{
 		printf( "Failed to load Player texture!\n" );
 		success = false;
 	}
-    if( !gEnemyTexture.loadFromFile( "Images/enemy.png" ) )
+    if( !gEnemyTexture.loadFromFile( "Resources/enemy.png" ) )
 	{
 		printf( "Failed to load Enemy texture!\n" );
 		success = false;
@@ -397,8 +459,13 @@ bool loadMedia()
 void close()
 {
 	//Free loaded images
+	gTimeTextTexture.free();
 	gPlayerTexture.free();
 	gEnemyTexture.free();
+
+	//Free global font
+	TTF_CloseFont( gFont );
+	gFont = NULL;
 
 	//Destroy window
 	SDL_DestroyRenderer( gRenderer );
@@ -407,6 +474,7 @@ void close()
 	gRenderer = NULL;
 
 	//Quit SDL subsystems
+	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
 }
@@ -433,21 +501,19 @@ int main( int argc, char* args[] )
 			//Event handler
 			SDL_Event e;
 
-			//The Player that will be moving around on the screen
+			//Set text color as black
+			SDL_Color textColor = { 0, 0, 0, 255 };
+
+			//The application timer
+			LTimer timer;
+
+			//In memory text stream
+			std::stringstream timeText;
+
+			//The Player and Enemy that will be moving around on the screen
 			Player player;
             Enemy enemy;
 
-            //Degree of degrees
-          	/*double degrees = 0; 
-
-            int xDisplacement = 0;
-			int enemyCounter = rand() % 5 + 1;
-			int direction = rand() % 3 - 1;*/
-
-			//Flip type
-			//SDL_RendererFlip flipType = SDL_FLIP_NONE;
-
-			//While application is running
 			while( !quit )
 			{
 				//Handle events on queue
@@ -459,21 +525,25 @@ int main( int argc, char* args[] )
 						quit = true;
 						if(e.key.keysym.sym == SDLK_END)
                             quit = true;
-					}
-                    //Handle input for the Player
+					}					
+					//Handle input for the Player
 					player.handleEvent( &e );
+				}
+				//Set text to be rendered
+				timeText.str( "" );
+				timeText << "Time: " << ( timer.getTicks() / 1000 ) ; 
+
+				//Render text
+				if( !gTimeTextTexture.loadFromRenderedText( timeText.str().c_str(), textColor ) )
+				{
+					printf( "Unable to render time texture!\n" );
 				}
 
 				//Clear screen
 				SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
 				SDL_RenderClear( gRenderer );
 
-   				//degrees += direction * 1;
-				/*for(int i = 0; i < enemyCounter; i++){
-					gEnemyTexture.render( xDisplacement, ( SCREEN_HEIGHT - gEnemyTexture.getHeight() ) / 2, NULL, degrees, NULL, flipType);
-					xDisplacement += 100;
-				}
-				xDisplacement = 0;*/
+				gTimeTextTexture.render( 3*( SCREEN_WIDTH - gTimeTextTexture.getWidth() ) / 4, 0 );
 
 				//Render objects
 				player.render();
