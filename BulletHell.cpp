@@ -3,9 +3,12 @@
 //Using SDL, SDL_image, standard IO, and strings
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
 #include <cmath>
+#include <time.h> 
+#include <sstream>
 
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
@@ -43,7 +46,37 @@ class LTexture
 		int mHeight;
 };
 
-//The Player that will move around on the screen
+class LTimer
+{
+    public:
+		//Initializes variables
+		LTimer();
+
+		//The various clock actions
+		void start();
+		void stop();
+		void pause();
+		void unpause();
+
+		//Gets the timer's time
+		Uint32 getTicks();
+
+		//Checks the status of the timer
+		bool isStarted();
+		bool isPaused();
+
+    private:
+		//The clock time when the timer started
+		Uint32 mStartTicks;
+
+		//The ticks stored when the timer was paused
+		Uint32 mPausedTicks;
+
+		//The timer status
+		bool mPaused;
+		bool mStarted;
+};
+
 class Player
 {
     public:
@@ -76,14 +109,18 @@ class Enemy
 		//Initializes the variables
 		Enemy();
 
-        //Shows the Enemy on the screen
+		//Generate Enemy
+		void generateEnemy();
+		//Moves the enemy
+		void move();
+        //Shows the degreesg Enemy on the screen
 		void render();
 
     private:
-		//Enemy position
-		int posX, posY, rotation, posXDisplacement, enemyCounter, direction;
+		int posX, posY, degrees, posXDisplacement, enemyCounter, direction;
 
 };
+
 //Starts up SDL and creates window
 bool init();
 
@@ -248,23 +285,38 @@ void Player::render()
 Enemy::Enemy()
 {
 	//initial position
+	srand (time(NULL));
 	posY = 0;
-	posXDisplacement = 0;
-	rotation = 0;
-	enemyCounter = rand() % 5 + 1;
+	degrees = 0;
 	direction = rand() % 3 - 1;
+	generateEnemy();
+}
+
+void Enemy::generateEnemy()
+{
+	enemyCounter = rand() % 5 + 4;
+}
+
+void Enemy::move()
+{
+	posY += 1;    
+    if(posY > SCREEN_HEIGHT)
+    {
+    	posY = 0;
+    	direction = rand() % 3 - 1;
+    	generateEnemy();
+    }
 }
 
 void Enemy::render()
 {
-	SDL_RendererFlip flipType = SDL_FLIP_NONE;
-	
+	SDL_RendererFlip flipType = SDL_FLIP_NONE;	
 	//Clear screen
 	SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
 	for(int i = 0; i < enemyCounter; i++){
-		rotation += direction * 1;
-		gEnemyTexture.render( posXDisplacement, posY, NULL, rotation, NULL, flipType);
-		posXDisplacement += 100;
+		degrees += direction * 1;
+		gEnemyTexture.render( posXDisplacement, posY, NULL, degrees, NULL, flipType);
+		posXDisplacement += 50;
 	}	
 	posXDisplacement = 0;
 }
@@ -385,7 +437,7 @@ int main( int argc, char* args[] )
 			Player player;
             Enemy enemy;
 
-            //Degree of Rotation
+            //Degree of degrees
           	/*double degrees = 0; 
 
             int xDisplacement = 0;
@@ -425,6 +477,7 @@ int main( int argc, char* args[] )
 
 				//Render objects
 				player.render();
+				enemy.move();
                 enemy.render();
 				//Update screen
 				SDL_RenderPresent( gRenderer );
