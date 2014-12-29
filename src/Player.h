@@ -29,13 +29,15 @@ protected:
 	bool isMovingDown;					//used to know how to move the player, switch on user input
 	bool isMovingLeft;					//used to know how to move the player, switch on user input
 	bool isMovingRight;					//used to know how to move the player, switch on user input
+	bool isFadingIn;					//used to know if the player is fading in
+	bool isFadingOut;					//used to know if the player is fading out
 	unsigned int frameCounter;			//count the number of frame elapsed
 	list<Bullet> bullets;				//contains the bullets of the player
 
 public:
-	Player(RenderWindow &window); 							//initialise the player
+	Player(RenderWindow &window); 							//initialize the player
 	void update();											//update the player
-	void blink();											//blink animation when the player is touched
+	void blink();											//start a blink animation when the player is hit
 	void setIsMovingUp(bool isMovingUp);
 	void setIsMovingDown(bool isMovingDown);
 	void setIsMovingLeft(bool isMovingLeft);
@@ -44,7 +46,6 @@ public:
 	list<Bullet>& getBullets();
 	void clearBullets();									//clear obsolete bullets
 	void moveBullets();									//move the bullets
-
 };
 
 #endif /* PLAYER_H_ */

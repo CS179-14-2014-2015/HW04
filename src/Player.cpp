@@ -27,11 +27,32 @@ Player::Player(RenderWindow &window) : window(window) {
 	isMovingDown = false;
 	isMovingLeft = false;
 	isMovingRight = false;
+	isFadingIn = false;
+	isFadingOut = false;
 }
 
 void Player::update() {
 
-	frameCounter++;
+	//blink animation
+	int a = getColor().a;
+	int fadeRate = 30;
+	if(isFadingIn){
+		a -= fadeRate;
+		if(a <= 0) {
+			a = 0;
+			isFadingIn = false;
+			isFadingOut = true;
+		}
+		setColor(Color(225, 225, 225, a));
+	}
+	if(isFadingOut) {
+		a += fadeRate;
+		if(a >= 225){
+			a = 225;
+			isFadingOut = false;
+		}
+			setColor(Color(255, 255, 255, a + fadeRate));
+	}
 
 	//clear obsolete bullets
 	clearBullets();
@@ -40,6 +61,7 @@ void Player::update() {
 	moveBullets();
 
 	//fire
+	frameCounter++;
 	if(frameCounter % 3 == 0)
 		fire();
 
@@ -111,6 +133,11 @@ void Player::clearBullets(){
 		if(Tools::isOutside(*it, window))
 			it = bullets.erase(it);
 	}
+}
+
+void Player::blink() {
+	if(isFadingIn == false && isFadingOut == false)
+		isFadingIn = true;
 }
 
 void Player::moveBullets() {

@@ -16,14 +16,19 @@ using namespace std;
 class Bullet : public Sprite {
 
 protected:
-	float xSpeed;
-	float ySpeed;
+	float xSpeed;	//the x speed of the bullet
+	float ySpeed;	//the y speed of the bullet
+	float spin;		//the spin of the bullet
 
 public:
-	Bullet(const Texture & texture, const float& xSpeed, const float& ySpeed);
-    int getXspeed() const;
-    int getYspeed() const;
+	Bullet(const Texture & texture, const float& xSpeed, const float& ySpeed, const float &spin = 0);
 
+    float getXspeed() const;
+    float getYspeed() const;
+    float getSpin() const;
+
+	void setXspeed(float speed);
+	void setYspeed(float speed);
 };
 
 #endif /* BULLET_H_ */

@@ -7,13 +7,30 @@
 
 #include "Bullet.h"
 
-Bullet::Bullet(const Texture & texture, const float& xSpeed, const float & ySpeed) : Sprite(texture) ,xSpeed(xSpeed), ySpeed(ySpeed){}
+Bullet::Bullet(const Texture & texture, const float& xSpeed, const float & ySpeed, const float &spin) :
+Sprite(texture) ,xSpeed(xSpeed), ySpeed(ySpeed), spin(spin){
+	setOrigin(getGlobalBounds().width / 2, getGlobalBounds().height / 2);
+}
 
-int Bullet::getXspeed() const{
+float Bullet::getXspeed() const{
 	return xSpeed;
 }
 
-int Bullet::getYspeed() const{
+float Bullet::getYspeed() const{
 	return ySpeed;
 }
+
+float Bullet::getSpin() const {
+	return spin;
+}
+
+void Bullet::setXspeed(float speed) {
+	this->xSpeed = speed;
+}
+
+void Bullet::setYspeed(float speed) {
+	this->ySpeed = speed;
+}
+
+
 

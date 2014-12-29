@@ -27,3 +27,12 @@ bool Tools::isRight(Sprite const &sprite, RenderWindow const &window){
 bool Tools::isOutside(Sprite const &sprite, RenderWindow const &window){
 	return isTop(sprite) || isLeft(sprite) ||  isBottom(sprite, window) || isRight(sprite, window);
 }
+
+float Tools::norm(Vector2f a, Vector2f b) {
+	float x = b.x - a.y;
+	float y = b.y - a.y;
+
+	return (float) sqrt(x*x + y*y);
+}
+
+

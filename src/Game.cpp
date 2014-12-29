@@ -9,15 +9,17 @@
 
 Game::Game() : window(VideoMode(900, 500), "ASEC Shooter", Style::Close | Style::Titlebar), background(window),
 				player(window), enemiesManager(window){
-	window.setVerticalSyncEnabled(true);
+	window.setFramerateLimit(25);
 }
 
 void Game::update(){
 
+	/*
 	//Check enough time elapsed to have 25fps
 	if(clock.getElapsedTime().asMilliseconds() < 40)
 		return;
 	clock.restart();
+	*/
 
 	//clear the window
 	window.clear();
@@ -68,7 +70,6 @@ void Game::run(){
             	player.setIsMovingRight(false);
 
         }
-
 
         //Update
         update();

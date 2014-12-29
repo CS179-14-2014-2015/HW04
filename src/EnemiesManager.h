@@ -24,8 +24,10 @@ class EnemiesManager{
 
 protected:
 	RenderWindow &window;				//the application window
-	Texture texture;					//the enemies texture
+	Texture enemyTexture;				//the enemies texture
+	Texture bulletTexture;
 	list<Enemy> enemies;				//the list of enemies
+	list<Bullet> bullets;
 	unsigned int frameCounter;			//frame counter to handle updates
 
 public:
@@ -33,6 +35,12 @@ public:
 	void addEnemy();											//create a new enemy
 	void clearEnemies();										//clear dead enemies
     void checkPlayerBullets(list<Bullet> &playerBullets); 	//check if enemies are touched by player bullets
+    void checkBullet(Player &player);					//check if bullets touched the player
+    void checkEnemies(Player &player);					//check if enemies touched the player
+    void fire(Vector2f const &player);				 			//Make all the enemies fire toward the player
+    void moveEnemies();										//Move all the enemies
+    void moveBullets();										//Move the bullets
+    void clearBullets();										//clear off screen bullets
 	void update(Player &player);								//update the enemies
 
 };

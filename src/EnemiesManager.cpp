@@ -9,9 +9,13 @@
 
 EnemiesManager::EnemiesManager(RenderWindow &window) : window(window){
 
-	//load the texture, alert if failed
-	if(!texture.loadFromFile("resources/enemy.png")) {
+	//load the textures, alert if failed
+	if(!enemyTexture.loadFromFile("resources/enemy.png")) {
 		cout<< "Impossible to load enemy.png" <<endl;
+		exit(EXIT_FAILURE);
+	}
+	if(!bulletTexture.loadFromFile("resources/enemyBullet.png")) {
+		cout<< "Impossible to load enemyBullet.png" <<endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -21,13 +25,69 @@ EnemiesManager::EnemiesManager(RenderWindow &window) : window(window){
 }
 
 
+void EnemiesManager::fire(Vector2f const &player) {
 
-void EnemiesManager::update(Player &player)
-{
+	//make all the enemies fire and add it to the list
+	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++)
+		bullets.push_back(it->fire(player, bulletTexture));
+}
+
+void EnemiesManager::moveBullets() {
+
+	//move all the bullets and draw them
+	for(list<Bullet>::iterator it = bullets.begin(); it != bullets.end(); it++) {
+		it->move(it->getXspeed(), it->getYspeed());
+		it->rotate(it->getSpin());
+		window.draw(*it);
+	}
+}
+
+void EnemiesManager::clearBullets() {
+
+	for(list<Bullet>::iterator it = bullets.begin(); it != bullets.end(); it++){
+		if(Tools::isLeft(*it))
+			it = bullets.erase(it);
+	}
+}
+
+void EnemiesManager::moveEnemies() {
+
+	//move all the enemies
+	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++){
+		it->move(it->getXspeed(), it->getYspeed());
+		window.draw(*it);
+	}
+}
+
+void EnemiesManager::checkBullet(Player& player) {
+
+	//check collision with player
+	for(list<Bullet>::iterator it = bullets.begin(); it != bullets.end(); it++) {
+		if(it->getGlobalBounds().intersects(player.getGlobalBounds())) {
+			it = bullets.erase(it);
+			player.blink();
+		}
+	}
+}
+
+void EnemiesManager::checkEnemies(Player& player) {
+
+	//check collision with player
+	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++) {
+		if(it->getGlobalBounds().intersects(player.getGlobalBounds())) {
+			player.blink();
+			it = enemies.erase(it);
+		}
+	}
+}
+
+void EnemiesManager::update(Player &player){
 	frameCounter++;
 
-	//check player bullet collision
+	//check  collisions
 	checkPlayerBullets(player.getBullets());
+	checkBullet(player);
+	checkEnemies(player);
 
 	//clear dead enemies
 	clearEnemies();
@@ -38,17 +98,19 @@ void EnemiesManager::update(Player &player)
 	}
 
 	//move enemies
-	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++){
+	moveEnemies();
 
-		it->move(it->getXspeed(), it->getYspeed());
-		window.draw(*it);
-	}
+	//make enemy fire
+	clearBullets();
+	if(frameCounter % 50 == 0)
+		fire(player.getPosition());
+	moveBullets();
 }
 
 void EnemiesManager::addEnemy(){
 
 	//Create sprite, place the enemy, modify origin and add it to the list
-	Enemy enemy(texture);
+	Enemy enemy(enemyTexture);
 	enemy.setOrigin(enemy.getGlobalBounds().width / 2, enemy.getGlobalBounds().height / 2);
 	int y = rand() % (window.getSize().y - (int) enemy.getGlobalBounds().height) + enemy.getGlobalBounds().height / 2;
 	enemy.setPosition(window.getSize().x + enemy.getGlobalBounds().width / 2, y);
@@ -56,8 +118,8 @@ void EnemiesManager::addEnemy(){
 
 }
 
-void EnemiesManager::clearEnemies()
-{
+void EnemiesManager::clearEnemies(){
+
 	//delete all the dead enemies
 	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++){
 		if(it->isDead())
