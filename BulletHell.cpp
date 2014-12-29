@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string>
 #include <cmath>
-#include <time.h> 
+#include <time.h>
 #include <sstream>
 
 //Screen dimension constants

@@ -100,7 +100,7 @@ class Bullet{
 		static const int BULLET_VEL = 10;
 		
 		//Initializes the variables
-		Bullet(int sPosX, int sPosY, double sVelX, double sVelY);
+		Bullet(int, int, double, double);
 		
 		//Moves the bullet
 		bool move();
@@ -125,48 +125,43 @@ class Enemy{
 		static const int ENEMY_WIDTH = 20;
 		static const int ENEMY_HEIGHT = 20;
 		
-		//Maximum axis velocity of the bullet
-		static const int ENEMY_VEL = 10;
-		
-		//Maximum angular velocity of the enemy
-		static const double ENEMY_ROT = 30;
-		
 		//Initializes the variables
-		Enemy();
+		Enemy(double, double, void path(int *, int *, double));
 		
 		//Shoot the friggin' bullets
-		void shoot();
+		void shoot(int);
 		
 		//Move enemy
-		void move(SDL_Event& e);
+		bool move();
 		
 		//Show the enemy on the screen
 		void render();
 	
 	private:
-		//The X and Y offsets of the enemy
+		//The X and Y positions of the enemy
 		int mPosX, mPosY;
 		
-		//The velocity of the enemy
-		int mVelX, mVelY;
+		//The X and Y offsets of the enemy
+		double mOffsetX, mOffsetY;
 		
-		//The angle of the enemy
-		double mAngle;
+		//The angle and rotational speed of the enemy
+		double mAngle, mRotation;
 		
-		//The rotation of the enemy
-		double mRotation;
+		//The number of, angle between, and frequency of bullets fired
+		double mBullets, mBulletAngle;
+		int mBulletFrequency;
 		
-		//The number of bullets fired
-		double mBullets;
-		
-		//The angle between bullets
-		double mBulletAngle;
+		//Function used for pathing
+		void (*mPath)(int *, int *, double);
 		
 		//Origin of the shots
 		SDL_Point mCenter;
 		
 		//Enemy texture
 		LTexture* mEnemyTexture;
+		
+		//Timer for the enemy
+		LTimer mTimer;
 };
 
 //Starts up SDL and creates window
@@ -174,6 +169,9 @@ bool init();
 
 //Loads media
 bool loadMedia();
+
+//Functions for pathing
+void pathing(int *xPos, int *yPos, double t);
 
 //Frees media and shuts down SDL
 void close();
@@ -185,7 +183,11 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 //Scene textures
-LTexture gDotTexture;
+LTexture gBulletTexture;
+LTexture gEnemyTexture;
+
+//Game timer
+LTimer gTimer;
 
 //Vectors for bullets and enemies
 std::vector<Bullet> gBullets;
@@ -203,42 +205,39 @@ int main(int argc, char *args[]){
 			//Main loop flag
 			bool quit = false;
 			
+			//Frame counter
 			int frames = 0;
-			int frequency = 5;
+			
+			//Angle for function for the starting position of the enemy
+			double theta = 0;
 			
 			//Event handler
 			SDL_Event e;
 			
-			//Enemy
-			Enemy x;
-			gEnemies.push_back(x);
-			
 			//While application is running
 			while(!quit){
+				//Start global timer
+				if(!gTimer.isStarted()){
+					gTimer.start();
+				}
+				
 				//Handle events on queue
 				while(SDL_PollEvent(&e) != 0){
 					//User requests quit
 					if(e.type == SDL_QUIT){
 						quit = true;
 					}
-					
-					for(int i = 0; i < gEnemies.size(); ++i){
-						//Handle events
-						gEnemies[i].move(e);
-					}
 				}
 				
 				//Clear screen
-				SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+				SDL_SetRenderDrawColor(gRenderer, 0x39, 0x5D, 0x84, 0xFF);
 				SDL_RenderClear(gRenderer);
 				
-				for(int i = 0; i < gEnemies.size(); ++i){
-					if(frames%frequency == 0){
-						//Shoot bullet;
-						gEnemies[i].shoot();
-					}
-					//Render enemies
-					gEnemies[i].render();
+				//Spawn enemy every second
+				if(frames%100== 0){
+					theta += PI/4;
+					Enemy enemy((SCREEN_WIDTH-20)/2+((SCREEN_WIDTH-20)/2-10)*cos(theta), -10, pathing);
+					gEnemies.push_back(enemy);
 				}
 				
 				for(int i = 0; i < gBullets.size(); ++i){
@@ -248,6 +247,19 @@ int main(int argc, char *args[]){
 					}else{
 						//Render bullets
 						gBullets[i].render();
+					}
+				}
+				
+				for(int i = 0; i < gEnemies.size(); ++i){
+					//Move/rotate enemies
+					if(!gEnemies[i].move()){
+						gEnemies.erase(gEnemies.begin()+i);
+					}else{
+						//Shoot bullet;
+						gEnemies[i].shoot(frames);
+						
+						//Render enemies
+						gEnemies[i].render();
 					}
 				}
 				
@@ -291,7 +303,7 @@ bool LTexture::loadFromFile(std::string path){
 		printf("Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError());
 	}else{
 		//Color key image
-		SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0x00, 0xFF, 0xFF));
+		SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0xFF, 0xFF, 0xFF));
 		
 		//Create texture from surface pixels
 		newTexture = SDL_CreateTextureFromSurface(gRenderer, loadedSurface);
@@ -487,7 +499,7 @@ Bullet::Bullet(int sPosX, int sPosY, double sVelX, double sVelY){
 	mVelY = sVelY*BULLET_VEL;
 	
 	//Initializes the bullet pointer
-	mBulletTexture = &gDotTexture;
+	mBulletTexture = &gBulletTexture;
 }
 
 bool Bullet::move(){
@@ -512,73 +524,64 @@ void Bullet::render(){
 	mBulletTexture->render(mPosX, mPosY);
 }
 
-Enemy::Enemy(){
-	//Initialize the position of the enemy
-	mPosX = (SCREEN_WIDTH-ENEMY_WIDTH)/2;
-	mPosY = (SCREEN_HEIGHT-ENEMY_HEIGHT)/2;
+Enemy::Enemy(double sOffsetX, double sOffsetY, void path(int *, int *, double)){
+	//Initialize the offsets
+	mOffsetX = sOffsetX;
+	mOffsetY = sOffsetY;
 	
-	mVelX = 0;
-	mVelY = 0;
-	
-	//Initialize the angle of the enemy
+	//Initialize the angle and rotational speed of the enemy
 	mAngle = PI/2;
+	mRotation = 100;
 	
-	//Initialize the rotation of the enemy
-	mRotation = 0;
-	
-	//Initialize the number of bullets fired at a time
-	mBullets = 9;
-	
-	//Initialize bullet angle
+	//Initialize the number of, angle between, and firing frequency of bullets
+	mBullets = 5;
 	mBulletAngle = 2*PI/mBullets;
-	
-	//Initialize enemy texture
-	mEnemyTexture = &gDotTexture;
+	mBulletFrequency = 1;
 	
 	//Initialize the center
 	mCenter.x = mPosX+ENEMY_WIDTH/2;
 	mCenter.y = mPosY+ENEMY_HEIGHT/2;
+	
+	//Initialize the pathing function
+	mPath = path;
+	
+	//Initialize enemy texture
+	mEnemyTexture = &gEnemyTexture;
+	
+	//Initialize the timer;
+	mTimer.start();
 }
 
-void Enemy::move(SDL_Event& e){
-	//If a key was pressed
-	if(e.type == SDL_KEYDOWN && e.key.repeat == 0){
-		switch(e.key.keysym.sym){
-			//Adjust the velocity
-			case SDLK_UP: mVelY -= ENEMY_VEL; break;
-			case SDLK_DOWN: mVelY += ENEMY_VEL; break;
-			case SDLK_LEFT: mVelX -= ENEMY_VEL; break;
-			case SDLK_RIGHT: mVelX += ENEMY_VEL; break;
-			//Press space to rotate
-			case SDLK_SPACE: mRotation += ENEMY_ROT; break;
-		}
+bool Enemy::move(){
+	//Follow the path
+	mPath(&mPosX, &mPosY, mTimer.getTicks()/10.0);
+	mPosX += mOffsetX;
+	mPosY += mOffsetY;
+	
+	//Rotate
+	mAngle += mRotation;
+	
+	//Check if enemy is outside the screen
+	if((mPosY+ENEMY_HEIGHT < 0) || (mPosY > SCREEN_HEIGHT) || (mPosX+ENEMY_WIDTH < 0) || (mPosX > SCREEN_WIDTH)){
+		//Return false if bullet is outside screen
+		return false;
 	}
-	//If a key was released
-	else if(e.type == SDL_KEYUP && e.key.repeat == 0){
-		//Reset values
-		switch(e.key.keysym.sym){
-			case SDLK_UP: mVelY += ENEMY_VEL; break;
-			case SDLK_DOWN: mVelY -= ENEMY_VEL; break;
-			case SDLK_LEFT: mVelX += ENEMY_VEL; break;
-			case SDLK_RIGHT: mVelX -= ENEMY_VEL; break;
-			case SDLK_SPACE: mRotation -= ENEMY_ROT; break;
-		}
-	}
+	
+	//Return true if bullet is inside screen
+	return true;
 }
 
-void Enemy::shoot(){
-	//Add bullet/s into "barrel" i.e. vector of bullets to be shot
-	for(double i = mAngle; i < mAngle+2*PI; i += mBulletAngle){
-		Bullet bullet(mPosX, mPosY, cos(i), sin(i));
-		gBullets.push_back(bullet);
+void Enemy::shoot(int frame){
+	if(frame%mBulletFrequency == 0){
+		//Add bullet/s into "barrel" i.e. vector of bullets to be shot
+		for(double i = mAngle; i < mAngle+2*PI; i += mBulletAngle){
+			Bullet bullet(mPosX, mPosY, cos(i), sin(i));
+			gBullets.push_back(bullet);
+		}
 	}
 }
 
 void Enemy::render(){
-	mPosX += mVelX;
-	mPosY += mVelY;
-	mAngle += mRotation;
-	
 	//Show the bullet
 	mEnemyTexture->render(mPosX, mPosY);
 }
@@ -631,7 +634,13 @@ bool loadMedia(){
 	bool success = true;
 	
 	//Load bullet texture
-	if(!gDotTexture.loadFromFile("dot.bmp")){
+	if(!gBulletTexture.loadFromFile("bullet.bmp")){
+		printf("Failed to load bullet texture!\n");
+		success = false;
+	}
+	
+	//Load enemy texture
+	if(!gEnemyTexture.loadFromFile("enemy.bmp")){
 		printf("Failed to load bullet texture!\n");
 		success = false;
 	}
@@ -639,9 +648,15 @@ bool loadMedia(){
 	return success;
 }
 
+void pathing(int *xPos, int *yPos, double t){
+	*yPos = t;
+	*xPos = 0;
+}
+
 void close(){
 	//Free loaded images
-	gDotTexture.free();
+	gBulletTexture.free();
+	gEnemyTexture.free();
 	
 	//Destroy window
 	SDL_DestroyRenderer(gRenderer);
