@@ -97,10 +97,10 @@ class Bullet{
 		static const int BULLET_HEIGHT = 20;
 		
 		//Maximum axis velocity of the bullet
-		static const int BULLET_VEL = 10;
+		static const int BULLET_VEL = 5;
 		
 		//Initializes the variables
-		Bullet(int sPosX, int sPosY, double sVelX, double sVelY);
+		Bullet(int, int, double);
 		
 		//Moves the bullet
 		bool move();
@@ -115,6 +115,9 @@ class Bullet{
 		//The velocity of the bullet
 		double mVelX, mVelY;
 		
+		//The angle of the bullet
+		double mAngle;
+		
 		//Pointer to bullet texture image
 		LTexture* mBulletTexture;
 };
@@ -125,48 +128,55 @@ class Enemy{
 		static const int ENEMY_WIDTH = 20;
 		static const int ENEMY_HEIGHT = 20;
 		
-		//Maximum axis velocity of the bullet
-		static const int ENEMY_VEL = 10;
-		
-		//Maximum angular velocity of the enemy
-		static const double ENEMY_ROT = 30;
-		
 		//Initializes the variables
-		Enemy();
+		Enemy(int, int, double, void (*)(int*, int*, double*, double));
 		
 		//Shoot the friggin' bullets
-		void shoot();
+		void shoot(int);
 		
 		//Move enemy
-		void move(SDL_Event& e);
+		bool move();
 		
 		//Show the enemy on the screen
 		void render();
 	
 	private:
-		//The X and Y offsets of the enemy
+		//The X and Y positions of the enemy
 		int mPosX, mPosY;
 		
-		//The velocity of the enemy
-		int mVelX, mVelY;
+		//The X and Y offsets of the enemy
+		double mOffsetX, mOffsetY;
 		
 		//The angle of the enemy
 		double mAngle;
 		
-		//The rotation of the enemy
-		double mRotation;
+		//The number of, angle between, and frequency of bullets fired
+		double mBullets, mBulletAngle;
+		int mBulletFrequency;
 		
-		//The number of bullets fired
-		double mBullets;
-		
-		//The angle between bullets
-		double mBulletAngle;
-		
-		//Origin of the shots
-		SDL_Point mCenter;
+		//Function used for pathing
+		void (*mPath)(int*, int*, double*, double);
 		
 		//Enemy texture
 		LTexture* mEnemyTexture;
+		
+		//Timer for the enemy
+		LTimer mTimer;
+};
+
+class Player{
+	public:
+		static const int PLAYER_WIDTH = 20;
+		static const int PLAYER_HEIGHT = 20;
+		
+		Player();
+		
+		void move(SDL_Event* e);
+		
+		void render();
+	
+	private:
+		int mPosX, mPosY;
 };
 
 //Starts up SDL and creates window
@@ -174,6 +184,9 @@ bool init();
 
 //Loads media
 bool loadMedia();
+
+//Functions for pathing
+void pathing(int*, int*, double*, double);
 
 //Frees media and shuts down SDL
 void close();
@@ -185,7 +198,12 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 //Scene textures
-LTexture gDotTexture;
+LTexture gBulletTexture;
+LTexture gEnemyTexture;
+LTexture gPlayerTexture;
+
+//Game timer
+LTimer gTimer;
 
 //Vectors for bullets and enemies
 std::vector<Bullet> gBullets;
@@ -203,18 +221,24 @@ int main(int argc, char *args[]){
 			//Main loop flag
 			bool quit = false;
 			
+			//Frame counter
 			int frames = 0;
-			int frequency = 5;
+			
+			//Angle for function for the starting position of the enemy
+			double theta = 0;
 			
 			//Event handler
 			SDL_Event e;
 			
-			//Enemy
-			Enemy x;
-			gEnemies.push_back(x);
+			Player player;
 			
 			//While application is running
 			while(!quit){
+				//Start global timer
+				if(!gTimer.isStarted()){
+					gTimer.start();
+				}
+				
 				//Handle events on queue
 				while(SDL_PollEvent(&e) != 0){
 					//User requests quit
@@ -222,24 +246,32 @@ int main(int argc, char *args[]){
 						quit = true;
 					}
 					
-					for(int i = 0; i < gEnemies.size(); ++i){
-						//Handle events
-						gEnemies[i].move(e);
-					}
+					//Handle input from the player
+					player.move(&e);
 				}
 				
 				//Clear screen
-				SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+				SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
 				SDL_RenderClear(gRenderer);
 				
-				for(int i = 0; i < gEnemies.size(); ++i){
-					if(frames%frequency == 0){
-						//Shoot bullet;
-						gEnemies[i].shoot();
-					}
-					//Render enemies
-					gEnemies[i].render();
+				//Spawn enemy every second
+				if(frames%100== 0){
+					theta += PI/4;
+					Enemy enemy(1, 60, (SCREEN_WIDTH-20)/2+((SCREEN_WIDTH-20)/2-10)*cos(theta), &pathing);
+					gEnemies.push_back(enemy);
 				}
+				
+				for(int i = 0; i < gEnemies.size(); ++i){
+					//Move/rotate enemies
+					if(!gEnemies[i].move()){
+						gEnemies.erase(gEnemies.begin()+i);
+					}else{
+						//Shoot bullet;
+						gEnemies[i].shoot(frames);
+					}
+				}
+				
+				player.render();
 				
 				for(int i = 0; i < gBullets.size(); ++i){
 					//Move the bullet
@@ -249,6 +281,11 @@ int main(int argc, char *args[]){
 						//Render bullets
 						gBullets[i].render();
 					}
+				}
+				
+				for(int i = 0; i < gEnemies.size(); ++i){
+					//Render enemies
+					gEnemies[i].render();
 				}
 				
 				//Update screen
@@ -291,7 +328,7 @@ bool LTexture::loadFromFile(std::string path){
 		printf("Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError());
 	}else{
 		//Color key image
-		SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0x00, 0xFF, 0xFF));
+		SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0xFF, 0xFF, 0xFF));
 		
 		//Create texture from surface pixels
 		newTexture = SDL_CreateTextureFromSurface(gRenderer, loadedSurface);
@@ -477,17 +514,20 @@ bool LTimer::isPaused(){
 	return mPaused && mStarted;
 }
 
-Bullet::Bullet(int sPosX, int sPosY, double sVelX, double sVelY){
+Bullet::Bullet(int sPosX, int sPosY, double sAngle){
 	//Initializes the offsets
 	mPosX = sPosX;
 	mPosY = sPosY;
 	
 	//Initializes the velocity
-	mVelX = sVelX*BULLET_VEL;
-	mVelY = sVelY*BULLET_VEL;
+	mVelX = cos(sAngle+PI/2)*BULLET_VEL;
+	mVelY = sin(sAngle+PI/2)*BULLET_VEL;
+	
+	//Initialize the angle
+	mAngle = sAngle;
 	
 	//Initializes the bullet pointer
-	mBulletTexture = &gDotTexture;
+	mBulletTexture = &gBulletTexture;
 }
 
 bool Bullet::move(){
@@ -509,78 +549,97 @@ bool Bullet::move(){
 
 void Bullet::render(){
 	//Show the bullet
-	mBulletTexture->render(mPosX, mPosY);
+	mBulletTexture->render(mPosX, mPosY, NULL, mAngle);
 }
 
-Enemy::Enemy(){
-	//Initialize the position of the enemy
-	mPosX = (SCREEN_WIDTH-ENEMY_WIDTH)/2;
-	mPosY = (SCREEN_HEIGHT-ENEMY_HEIGHT)/2;
+Enemy::Enemy(int bullets, int bulletFrequency, double sOffsetX, void (*path)(int*, int*, double*, double)){
+	//Initialize the offsets
+	mOffsetX = sOffsetX;
+	mOffsetY = -ENEMY_HEIGHT;
 	
-	mVelX = 0;
-	mVelY = 0;
+	//Initialize the angle and rotational speed of the enemy
+	mAngle = 0;
 	
-	//Initialize the angle of the enemy
-	mAngle = PI/2;
-	
-	//Initialize the rotation of the enemy
-	mRotation = 0;
-	
-	//Initialize the number of bullets fired at a time
-	mBullets = 9;
-	
-	//Initialize bullet angle
+	//Initialize the number of, angle between, and firing frequency of bullets
+	mBullets = bullets;
 	mBulletAngle = 2*PI/mBullets;
+	mBulletFrequency = 60/bulletFrequency;
+	
+	//Initialize the pathing function
+	mPath = path;
 	
 	//Initialize enemy texture
-	mEnemyTexture = &gDotTexture;
+	mEnemyTexture = &gEnemyTexture;
 	
-	//Initialize the center
-	mCenter.x = mPosX+ENEMY_WIDTH/2;
-	mCenter.y = mPosY+ENEMY_HEIGHT/2;
+	//Initialize the timer;
+	mTimer.start();
 }
 
-void Enemy::move(SDL_Event& e){
-	//If a key was pressed
-	if(e.type == SDL_KEYDOWN && e.key.repeat == 0){
-		switch(e.key.keysym.sym){
-			//Adjust the velocity
-			case SDLK_UP: mVelY -= ENEMY_VEL; break;
-			case SDLK_DOWN: mVelY += ENEMY_VEL; break;
-			case SDLK_LEFT: mVelX -= ENEMY_VEL; break;
-			case SDLK_RIGHT: mVelX += ENEMY_VEL; break;
-			//Press space to rotate
-			case SDLK_SPACE: mRotation += ENEMY_ROT; break;
-		}
+bool Enemy::move(){
+	//Follow the path
+	mPath(&mPosX, &mPosY, &mAngle, mTimer.getTicks());
+	
+	//Add the offsets
+	mPosX += mOffsetX;
+	mPosY += mOffsetY;
+	
+	//Check if enemy is outside the screen
+	if((mPosY+ENEMY_HEIGHT < 0) || (mPosX+ENEMY_WIDTH < 0) || (mPosX > SCREEN_WIDTH)){
+		//Return false if bullet is outside screen
+		return false;
 	}
-	//If a key was released
-	else if(e.type == SDL_KEYUP && e.key.repeat == 0){
-		//Reset values
-		switch(e.key.keysym.sym){
-			case SDLK_UP: mVelY += ENEMY_VEL; break;
-			case SDLK_DOWN: mVelY -= ENEMY_VEL; break;
-			case SDLK_LEFT: mVelX += ENEMY_VEL; break;
-			case SDLK_RIGHT: mVelX -= ENEMY_VEL; break;
-			case SDLK_SPACE: mRotation -= ENEMY_ROT; break;
-		}
-	}
+	
+	//Return true if bullet is inside screen
+	return true;
 }
 
-void Enemy::shoot(){
-	//Add bullet/s into "barrel" i.e. vector of bullets to be shot
-	for(double i = mAngle; i < mAngle+2*PI; i += mBulletAngle){
-		Bullet bullet(mPosX, mPosY, cos(i), sin(i));
-		gBullets.push_back(bullet);
+void Enemy::shoot(int frame){
+	if(frame%mBulletFrequency == 0){
+		//Add bullet/s into "barrel" i.e. vector of bullets to be shot
+		for(double i = mAngle; i < mAngle+2*PI; i += mBulletAngle){
+			Bullet bullet(mPosX, mPosY, i);
+			gBullets.push_back(bullet);
+		}
 	}
 }
 
 void Enemy::render(){
-	mPosX += mVelX;
-	mPosY += mVelY;
-	mAngle += mRotation;
-	
 	//Show the bullet
-	mEnemyTexture->render(mPosX, mPosY);
+	mEnemyTexture->render(mPosX, mPosY, NULL, 180*mAngle/PI);
+}
+
+Player::Player(){
+	mPosX = (SCREEN_WIDTH-PLAYER_WIDTH)/2;
+	mPosY = (SCREEN_HEIGHT-PLAYER_HEIGHT)/2;
+}
+
+void Player::move(SDL_Event* e){
+	//Hide the cursor from the screen
+	SDL_ShowCursor(SDL_DISABLE);
+	
+	//If the mouse is moving
+	if(e->type == SDL_MOUSEMOTION){
+		//Get the the X and Y position of the mouse
+		mPosX = e->motion.x;
+		mPosY = e->motion.y;
+		
+		//If the mouse is outside the screen
+		if(mPosX < 0){
+			mPosX = 0;
+		}else if(mPosX+PLAYER_WIDTH > SCREEN_WIDTH){
+			mPosX = SCREEN_WIDTH-PLAYER_WIDTH;
+		}
+		
+		if(mPosY < 0){
+			mPosY = 0;
+		}else if(mPosY+PLAYER_HEIGHT > SCREEN_HEIGHT){
+			mPosY = SCREEN_HEIGHT-PLAYER_HEIGHT;
+		}
+	}
+}
+
+void Player::render(){
+	gPlayerTexture.render(mPosX, mPosY);
 }
 
 bool init(){
@@ -631,17 +690,36 @@ bool loadMedia(){
 	bool success = true;
 	
 	//Load bullet texture
-	if(!gDotTexture.loadFromFile("dot.bmp")){
+	if(!gBulletTexture.loadFromFile("bullet.bmp")){
 		printf("Failed to load bullet texture!\n");
+		success = false;
+	}
+	
+	//Load enemy texture
+	if(!gEnemyTexture.loadFromFile("enemy.bmp")){
+		printf("Failed to load enemy texture!\n");
+		success = false;
+	}
+	
+	//Load player texture
+	if(!gPlayerTexture.loadFromFile("player.bmp")){
+		printf("Failed to load player texture!\n");
 		success = false;
 	}
 	
 	return success;
 }
 
+void pathing(int* xPos, int* yPos, double* angle, double t){
+	*yPos = 0.1*t;
+	*xPos = 0;
+	*angle += 0.1;
+}
+
 void close(){
 	//Free loaded images
-	gDotTexture.free();
+	gBulletTexture.free();
+	gEnemyTexture.free();
 	
 	//Destroy window
 	SDL_DestroyRenderer(gRenderer);
