@@ -13,16 +13,3 @@ For inspiration, take a look at Touhou games:
 
 Or watch the New Year's fireworks for inspiration =①ω①=
 
----
-
-I'm not very good at documentation
-
-Anyway, I'm assuming our codes are kinda similar, so that it'll be easier to understand. :))
-
-I spawned one "enemy" (it's movements are user-controlled, though).
-
-Press ```SPACE``` to rotate the "enemy". Press the ```ARROW KEYS``` to move the it around the screen.
-
-There are easy ways to change the number and frequency of the bullets being shot.
-
-Just, um, yeah. Hopefully, it works on your computer. :))
