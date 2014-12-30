@@ -3,8 +3,10 @@
 //Using SDL, SDL_image, SDL_ttf, standard IO, strings, and string streams
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <cmath>
 
@@ -13,6 +15,8 @@
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
+const int SCOREBOARD_WIDTH = 100;
+const int PLAYFIELD_WIDTH = SCREEN_WIDTH-SCOREBOARD_WIDTH;
 
 //Texture wrapper class
 class LTexture{
@@ -100,7 +104,10 @@ class Bullet{
 		static const int BULLET_VEL = 5;
 		
 		//Initializes the variables
-		Bullet(int, int, double);
+		Bullet(double, double, double);
+		
+		//Get dimensions for collision detection
+		double getPosX(), getPosY(), getRad();
 		
 		//Moves the bullet
 		bool move();
@@ -110,7 +117,7 @@ class Bullet{
 	
 	private:
 		//The X and Y offsets of the bullet
-		int mPosX, mPosY;
+		double mPosX, mPosY;
 		
 		//The velocity of the bullet
 		double mVelX, mVelY;
@@ -129,7 +136,7 @@ class Enemy{
 		static const int ENEMY_HEIGHT = 20;
 		
 		//Initializes the variables
-		Enemy(int, int, double, void (*)(int*, int*, double*, double));
+		Enemy(int, int, double, void (*)(double*, double*, double*, double));
 		
 		//Shoot the friggin' bullets
 		void shoot(int);
@@ -142,7 +149,7 @@ class Enemy{
 	
 	private:
 		//The X and Y positions of the enemy
-		int mPosX, mPosY;
+		double mPosX, mPosY;
 		
 		//The X and Y offsets of the enemy
 		double mOffsetX, mOffsetY;
@@ -155,7 +162,7 @@ class Enemy{
 		int mBulletFrequency;
 		
 		//Function used for pathing
-		void (*mPath)(int*, int*, double*, double);
+		void (*mPath)(double*, double*, double*, double);
 		
 		//Enemy texture
 		LTexture* mEnemyTexture;
@@ -171,12 +178,15 @@ class Player{
 		
 		Player();
 		
+		//Get dimensions for collision detection
+		double getPosX(), getPosY(), getRad();
+		
 		void move(SDL_Event* e);
 		
 		void render();
 	
 	private:
-		int mPosX, mPosY;
+		double mPosX, mPosY;
 };
 
 //Starts up SDL and creates window
@@ -185,11 +195,14 @@ bool init();
 //Loads media
 bool loadMedia();
 
-//Functions for pathing
-void pathing(int*, int*, double*, double);
-
 //Frees media and shuts down SDL
 void close();
+
+//Checks collision between two circles
+bool checkCollision(double, double, double, double, double, double);
+
+//Functions for pathing
+void pathing(double*, double*, double*, double);	
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
@@ -197,10 +210,16 @@ SDL_Window* gWindow = NULL;
 //The window renderer
 SDL_Renderer* gRenderer = NULL;
 
-//Scene textures
+TTF_Font* gFont = NULL;
+
+//Playfield textures
 LTexture gBulletTexture;
 LTexture gEnemyTexture;
 LTexture gPlayerTexture;
+
+//Scoreboard textures
+LTexture gScoreTexture;
+LTexture gTimeTexture;
 
 //Game timer
 LTimer gTimer;
@@ -208,6 +227,8 @@ LTimer gTimer;
 //Vectors for bullets and enemies
 std::vector<Bullet> gBullets;
 std::vector<Enemy> gEnemies;
+
+int gScore = 0;
 
 int main(int argc, char *args[]){	
 	//Start up SDL and create window
@@ -232,6 +253,13 @@ int main(int argc, char *args[]){
 			
 			Player player;
 			
+			SDL_Color textColor = {0xD0, 0xD0, 0xD0, 0xFF};
+			
+			std::stringstream scoreText;
+			std::stringstream timeText;
+			
+			gTimer.start();
+			
 			//While application is running
 			while(!quit){
 				//Start global timer
@@ -250,14 +278,24 @@ int main(int argc, char *args[]){
 					player.move(&e);
 				}
 				
+				SDL_Rect playfield = {0, 0, PLAYFIELD_WIDTH, SCREEN_HEIGHT};
+				SDL_Rect scoreboard = {PLAYFIELD_WIDTH, 0, SCOREBOARD_WIDTH, SCREEN_HEIGHT};
+				
 				//Clear screen
-				SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
+				SDL_SetRenderDrawColor(gRenderer, 0xC8, 0x22, 0x22, 0xFF);
 				SDL_RenderClear(gRenderer);
 				
-				//Spawn enemy every second
+				//Set the playfield viewport
+				SDL_RenderSetViewport(gRenderer, &playfield);
+				
+				//Render the playfield
+				SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
+				SDL_RenderFillRect(gRenderer, &playfield);
+				
+				//Spawn enemy every 100 frames
 				if(frames%100== 0){
 					theta += PI/4;
-					Enemy enemy(1, 60, (SCREEN_WIDTH-20)/2+((SCREEN_WIDTH-20)/2-10)*cos(theta), &pathing);
+					Enemy enemy(5, 10, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta), &pathing);
 					gEnemies.push_back(enemy);
 				}
 				
@@ -275,7 +313,7 @@ int main(int argc, char *args[]){
 				
 				for(int i = 0; i < gBullets.size(); ++i){
 					//Move the bullet
-					if(!gBullets[i].move()){
+					if(!gBullets[i].move() || checkCollision(player.getPosX(), player.getPosY(), player.getRad(), gBullets[i].getPosX(), gBullets[i].getPosY(), gBullets[i].getRad())){
 						gBullets.erase(gBullets.begin()+i);
 					}else{
 						//Render bullets
@@ -287,6 +325,33 @@ int main(int argc, char *args[]){
 					//Render enemies
 					gEnemies[i].render();
 				}
+				
+				SDL_RenderSetViewport(gRenderer, &scoreboard);
+				
+				//Render the scoreboard
+				SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
+				
+				scoreText.str("");
+				scoreText << gScore;
+				
+				//Render text
+				if(!gScoreTexture.loadFromRenderedText(scoreText.str().c_str(), textColor)){
+					printf("Unable to render score texture!\n");
+				}
+				
+				//Render textures
+				gScoreTexture.render((SCOREBOARD_WIDTH-gScoreTexture.getWidth())/2, (SCREEN_HEIGHT-gScoreTexture.getHeight())/2);
+				
+				timeText.str("");
+				timeText << gTimer.getTicks()/1000;
+				
+				//Render text
+				if(!gTimeTexture.loadFromRenderedText(timeText.str().c_str(), textColor)){
+					printf("Unable to render time texture!\n");
+				}
+				
+				//Render textures
+				gTimeTexture.render((SCOREBOARD_WIDTH-gTimeTexture.getWidth())/2, 0);
 				
 				//Update screen
 				SDL_RenderPresent(gRenderer);
@@ -497,7 +562,7 @@ Uint32 LTimer::getTicks(){
 			time = mPausedTicks;
 		}else{
 			//Return the current time minus the start time
-			time = SDL_GetTicks() - mStartTicks;
+			time = SDL_GetTicks()-mStartTicks;
 		}
 	}
 	
@@ -514,20 +579,32 @@ bool LTimer::isPaused(){
 	return mPaused && mStarted;
 }
 
-Bullet::Bullet(int sPosX, int sPosY, double sAngle){
+Bullet::Bullet(double sPosX, double sPosY, double sAngle){
 	//Initializes the offsets
 	mPosX = sPosX;
 	mPosY = sPosY;
 	
 	//Initializes the velocity
-	mVelX = cos(sAngle+PI/2)*BULLET_VEL;
-	mVelY = sin(sAngle+PI/2)*BULLET_VEL;
+	mVelX = cos((sAngle+90)*PI/180)*BULLET_VEL;
+	mVelY = sin((sAngle+90)*PI/180)*BULLET_VEL;
 	
 	//Initialize the angle
 	mAngle = sAngle;
 	
 	//Initializes the bullet pointer
 	mBulletTexture = &gBulletTexture;
+}
+
+double Bullet::getPosX(){
+	return mPosX;
+}
+
+double Bullet::getPosY(){
+	return mPosY;
+}
+
+double Bullet::getRad(){
+	return BULLET_WIDTH/2;
 }
 
 bool Bullet::move(){
@@ -538,7 +615,7 @@ bool Bullet::move(){
 	mPosY += mVelY;
 	
 	//If the bullet went too far to the left, right, up, or down
-	if((mPosY+BULLET_HEIGHT < 0) || (mPosY > SCREEN_HEIGHT) || (mPosX+BULLET_WIDTH < 0) || (mPosX > SCREEN_WIDTH)){
+	if((mPosY+BULLET_HEIGHT < 0) || (mPosY > SCREEN_HEIGHT) || (mPosX+BULLET_WIDTH < 0) || (mPosX > PLAYFIELD_WIDTH)){
 		//Return false if bullet is outside screen
 		return false;
 	}
@@ -552,7 +629,7 @@ void Bullet::render(){
 	mBulletTexture->render(mPosX, mPosY, NULL, mAngle);
 }
 
-Enemy::Enemy(int bullets, int bulletFrequency, double sOffsetX, void (*path)(int*, int*, double*, double)){
+Enemy::Enemy(int bullets, int bulletFrequency, double sOffsetX, void (*path)(double*, double*, double*, double)){
 	//Initialize the offsets
 	mOffsetX = sOffsetX;
 	mOffsetY = -ENEMY_HEIGHT;
@@ -562,7 +639,7 @@ Enemy::Enemy(int bullets, int bulletFrequency, double sOffsetX, void (*path)(int
 	
 	//Initialize the number of, angle between, and firing frequency of bullets
 	mBullets = bullets;
-	mBulletAngle = 2*PI/mBullets;
+	mBulletAngle = 360/mBullets;
 	mBulletFrequency = 60/bulletFrequency;
 	
 	//Initialize the pathing function
@@ -584,7 +661,7 @@ bool Enemy::move(){
 	mPosY += mOffsetY;
 	
 	//Check if enemy is outside the screen
-	if((mPosY+ENEMY_HEIGHT < 0) || (mPosX+ENEMY_WIDTH < 0) || (mPosX > SCREEN_WIDTH)){
+	if((mPosY+ENEMY_HEIGHT < 0) || (mPosX+ENEMY_WIDTH < 0) || (mPosX > PLAYFIELD_WIDTH)){
 		//Return false if bullet is outside screen
 		return false;
 	}
@@ -596,7 +673,7 @@ bool Enemy::move(){
 void Enemy::shoot(int frame){
 	if(frame%mBulletFrequency == 0){
 		//Add bullet/s into "barrel" i.e. vector of bullets to be shot
-		for(double i = mAngle; i < mAngle+2*PI; i += mBulletAngle){
+		for(double i = mAngle; i < mAngle+360; i += mBulletAngle){
 			Bullet bullet(mPosX, mPosY, i);
 			gBullets.push_back(bullet);
 		}
@@ -605,34 +682,47 @@ void Enemy::shoot(int frame){
 
 void Enemy::render(){
 	//Show the bullet
-	mEnemyTexture->render(mPosX, mPosY, NULL, 180*mAngle/PI);
+	mEnemyTexture->render(mPosX, mPosY, NULL, mAngle);
 }
 
 Player::Player(){
-	mPosX = (SCREEN_WIDTH-PLAYER_WIDTH)/2;
+	mPosX = (PLAYFIELD_WIDTH-PLAYER_WIDTH)/2;
 	mPosY = (SCREEN_HEIGHT-PLAYER_HEIGHT)/2;
 }
 
+double Player::getPosX(){
+	return mPosX;
+}
+
+double Player::getPosY(){
+	return mPosY;
+}
+
+double Player::getRad(){
+	return PLAYER_WIDTH/2;
+}
+
 void Player::move(SDL_Event* e){
-	//Hide the cursor from the screen
-	SDL_ShowCursor(SDL_DISABLE);
-	
 	//If the mouse is moving
+	SDL_ShowCursor(SDL_ENABLE);
+	
 	if(e->type == SDL_MOUSEMOTION){
-		//Get the the X and Y position of the mouse
-		mPosX = e->motion.x;
-		mPosY = e->motion.y;
-		
 		//If the mouse is outside the screen
-		if(mPosX < 0){
+		if(e->motion.x < 0){
 			mPosX = 0;
-		}else if(mPosX+PLAYER_WIDTH > SCREEN_WIDTH){
-			mPosX = SCREEN_WIDTH-PLAYER_WIDTH;
+		}else if(e->motion.x+PLAYER_WIDTH > PLAYFIELD_WIDTH){
+			mPosX = PLAYFIELD_WIDTH-PLAYER_WIDTH;
+		}else{
+			mPosX = e->motion.x;
+			mPosY = e->motion.y;
+			
+			//Hide the cursor from the screen
+			SDL_ShowCursor(SDL_DISABLE);
 		}
 		
-		if(mPosY < 0){
+		if(e->motion.y < 0){
 			mPosY = 0;
-		}else if(mPosY+PLAYER_HEIGHT > SCREEN_HEIGHT){
+		}else if(e->motion.y+PLAYER_HEIGHT > SCREEN_HEIGHT){
 			mPosY = SCREEN_HEIGHT-PLAYER_HEIGHT;
 		}
 	}
@@ -678,6 +768,12 @@ bool init(){
 					printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
 					success = false;
 				}
+				
+				//Initialize SDL_ttf
+				if(TTF_Init() == -1){
+					printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+					success = false;
+				}
 			}
 		}
 	}
@@ -707,19 +803,27 @@ bool loadMedia(){
 		success = false;
 	}
 	
+	//Open the font
+	gFont = TTF_OpenFont("courier new.ttf", 28);
+	if(gFont == NULL){
+		printf("Failed to load font! SDL_ttf Error: %s\n", TTF_GetError());
+		success = false;
+	}
+	
 	return success;
-}
-
-void pathing(int* xPos, int* yPos, double* angle, double t){
-	*yPos = 0.1*t;
-	*xPos = 0;
-	*angle += 0.1;
 }
 
 void close(){
 	//Free loaded images
 	gBulletTexture.free();
 	gEnemyTexture.free();
+	gPlayerTexture.free();
+	gTimeTexture.free();
+	gScoreTexture.free();
+	
+	//Free global font
+	TTF_CloseFont(gFont);
+	gFont = NULL;
 	
 	//Destroy window
 	SDL_DestroyRenderer(gRenderer);
@@ -728,6 +832,21 @@ void close(){
 	gRenderer = NULL;
 	
 	//Quit SDL subsystems
+	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
+}
+
+bool checkCollision(double x1, double y1, double r1, double x2, double y2, double r2){
+	if(sqrt(pow(x1-x2, 2)+pow(y1-y2, 2)) < r1+r2){
+		++gScore;
+		return true;
+	}
+	return false;
+}
+
+void pathing(double* xPos, double* yPos, double* angle, double t){
+	*yPos = 0.1*t;
+	*xPos = 0;
+	*angle += 7;
 }
