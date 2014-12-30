@@ -18,6 +18,12 @@ const int SCREEN_HEIGHT = 480;
 const int SCOREBOARD_WIDTH = 100;
 const int PLAYFIELD_WIDTH = SCREEN_WIDTH-SCOREBOARD_WIDTH;
 
+//A circle structure
+struct Circle{
+	int x, y;
+	int r;
+};
+
 //Texture wrapper class
 class LTexture{
 	public:
@@ -106,14 +112,13 @@ class Bullet{
 		//Initializes the variables
 		Bullet(double, double, double);
 		
-		//Get dimensions for collision detection
-		double getPosX(), getPosY(), getRad();
-		
 		//Moves the bullet
 		bool move();
 		
 		//Shows the bullet on the screen
 		void render();
+		
+		Circle& getCollider();
 	
 	private:
 		//The X and Y offsets of the bullet
@@ -127,6 +132,9 @@ class Bullet{
 		
 		//Pointer to bullet texture image
 		LTexture* mBulletTexture;
+		
+		//Bullet's collision circle
+		Circle mCollider;
 };
 
 class Enemy{
@@ -136,10 +144,10 @@ class Enemy{
 		static const int ENEMY_HEIGHT = 20;
 		
 		//Initializes the variables
-		Enemy(int, int, double, void (*)(double*, double*, double*, double));
+		Enemy(int, int, double, double, void (*)(double*, double*, double*, double, double));
 		
 		//Shoot the friggin' bullets
-		void shoot(int);
+		void shoot();
 		
 		//Move enemy
 		bool move();
@@ -155,20 +163,23 @@ class Enemy{
 		double mOffsetX, mOffsetY;
 		
 		//The angle of the enemy
-		double mAngle;
+		double mAngle, mRotation;
 		
 		//The number of, angle between, and frequency of bullets fired
 		double mBullets, mBulletAngle;
 		int mBulletFrequency;
 		
 		//Function used for pathing
-		void (*mPath)(double*, double*, double*, double);
+		void (*mPath)(double*, double*, double*, double, double);
 		
 		//Enemy texture
 		LTexture* mEnemyTexture;
 		
 		//Timer for the enemy
-		LTimer mTimer;
+		LTimer mDurationTimer;
+		
+		//Timer for shooting
+		LTimer mShotTimer;
 };
 
 class Player{
@@ -178,15 +189,16 @@ class Player{
 		
 		Player();
 		
-		//Get dimensions for collision detection
-		double getPosX(), getPosY(), getRad();
-		
 		void move(SDL_Event* e);
 		
 		void render();
+		
+		Circle& getCollider();
 	
 	private:
 		double mPosX, mPosY;
+		
+		Circle mCollider;
 };
 
 //Starts up SDL and creates window
@@ -199,10 +211,10 @@ bool loadMedia();
 void close();
 
 //Checks collision between two circles
-bool checkCollision(double, double, double, double, double, double);
+bool checkCollision(Circle&, Circle&);
 
 //Functions for pathing
-void pathing(double*, double*, double*, double);	
+void pathing(double*, double*, double*, double, double);	
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
@@ -218,17 +230,23 @@ LTexture gEnemyTexture;
 LTexture gPlayerTexture;
 
 //Scoreboard textures
-LTexture gScoreTexture;
-LTexture gTimeTexture;
+LTexture gScoreTexture, gScoreTextTexture;
+LTexture gTimeTexture, gTimeTextTexture;
 
-//Game timer
-LTimer gTimer;
+//Logo texture
+LTexture gLogoTexture;
+Circle gLogoCollider;
+double gLogoAngle = 45;;
+
+//Game duration timer
+LTimer gDurationTimer;
 
 //Vectors for bullets and enemies
 std::vector<Bullet> gBullets;
 std::vector<Enemy> gEnemies;
 
 int gScore = 0;
+bool gGameOver = false;
 
 int main(int argc, char *args[]){	
 	//Start up SDL and create window
@@ -242,12 +260,6 @@ int main(int argc, char *args[]){
 			//Main loop flag
 			bool quit = false;
 			
-			//Frame counter
-			int frames = 0;
-			
-			//Angle for function for the starting position of the enemy
-			double theta = 0;
-			
 			//Event handler
 			SDL_Event e;
 			
@@ -258,13 +270,19 @@ int main(int argc, char *args[]){
 			std::stringstream scoreText;
 			std::stringstream timeText;
 			
-			gTimer.start();
+			gDurationTimer.start();
+			
+			//Spawn rate timer
+			LTimer spawnTimer;
+			spawnTimer.start();
+			
+			int spawnRate = 1000;
 			
 			//While application is running
 			while(!quit){
-				//Start global timer
-				if(!gTimer.isStarted()){
-					gTimer.start();
+				if(gDurationTimer.getTicks()/1000 >= 5){
+					gDurationTimer.pause();
+					gGameOver = true;
 				}
 				
 				//Handle events on queue
@@ -292,20 +310,26 @@ int main(int argc, char *args[]){
 				SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
 				SDL_RenderFillRect(gRenderer, &playfield);
 				
-				//Spawn enemy every 100 frames
-				if(frames%100== 0){
-					theta += PI/4;
-					Enemy enemy(5, 10, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta), &pathing);
+				//Spawn enemy every "spawnRate" frames
+				if(spawnTimer.getTicks() >= spawnRate && !gGameOver){
+					static int theta = 0;
+					
+					//Determines the position of enemy spawn
+					theta += PI/2;
+					Enemy enemy(5, 100, 1, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta), &pathing);
 					gEnemies.push_back(enemy);
+					
+					//Restarts timer
+					spawnTimer.start();
 				}
 				
 				for(int i = 0; i < gEnemies.size(); ++i){
 					//Move/rotate enemies
 					if(!gEnemies[i].move()){
 						gEnemies.erase(gEnemies.begin()+i);
-					}else{
+					}else if(!gGameOver){
 						//Shoot bullet;
-						gEnemies[i].shoot(frames);
+						gEnemies[i].shoot();
 					}
 				}
 				
@@ -313,7 +337,7 @@ int main(int argc, char *args[]){
 				
 				for(int i = 0; i < gBullets.size(); ++i){
 					//Move the bullet
-					if(!gBullets[i].move() || checkCollision(player.getPosX(), player.getPosY(), player.getRad(), gBullets[i].getPosX(), gBullets[i].getPosY(), gBullets[i].getRad())){
+					if(!gBullets[i].move() || checkCollision(player.getCollider(), gBullets[i].getCollider())){
 						gBullets.erase(gBullets.begin()+i);
 					}else{
 						//Render bullets
@@ -328,9 +352,6 @@ int main(int argc, char *args[]){
 				
 				SDL_RenderSetViewport(gRenderer, &scoreboard);
 				
-				//Render the scoreboard
-				SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
-				
 				scoreText.str("");
 				scoreText << gScore;
 				
@@ -340,10 +361,11 @@ int main(int argc, char *args[]){
 				}
 				
 				//Render textures
-				gScoreTexture.render((SCOREBOARD_WIDTH-gScoreTexture.getWidth())/2, (SCREEN_HEIGHT-gScoreTexture.getHeight())/2);
+				gScoreTextTexture.render((SCOREBOARD_WIDTH-gScoreTextTexture.getWidth())/2, SCREEN_HEIGHT-2*gScoreTextTexture.getHeight());
+				gScoreTexture.render((SCOREBOARD_WIDTH-gScoreTexture.getWidth())/2, SCREEN_HEIGHT-gScoreTexture.getHeight());
 				
 				timeText.str("");
-				timeText << gTimer.getTicks()/1000;
+				timeText << gDurationTimer.getTicks()/1000;
 				
 				//Render text
 				if(!gTimeTexture.loadFromRenderedText(timeText.str().c_str(), textColor)){
@@ -351,12 +373,18 @@ int main(int argc, char *args[]){
 				}
 				
 				//Render textures
-				gTimeTexture.render((SCOREBOARD_WIDTH-gTimeTexture.getWidth())/2, 0);
+				gTimeTextTexture.render((SCOREBOARD_WIDTH-gTimeTextTexture.getWidth())/2, 0);
+				gTimeTexture.render((SCOREBOARD_WIDTH-gTimeTexture.getWidth())/2, gTimeTexture.getHeight());
+				
+				//Render logo
+				gLogoTexture.render((SCOREBOARD_WIDTH-gLogoTexture.getWidth())/2, (SCREEN_HEIGHT-gLogoTexture.getHeight())/2, NULL, gLogoAngle);
+				
+				gLogoCollider.x = (SCOREBOARD_WIDTH)/2+PLAYFIELD_WIDTH;
+				gLogoCollider.y = (SCREEN_HEIGHT)/2;
+				gLogoCollider.r = gLogoTexture.getWidth()/2;
 				
 				//Update screen
 				SDL_RenderPresent(gRenderer);
-				
-				++frames;
 			}
 		}
 	}
@@ -593,18 +621,11 @@ Bullet::Bullet(double sPosX, double sPosY, double sAngle){
 	
 	//Initializes the bullet pointer
 	mBulletTexture = &gBulletTexture;
-}
-
-double Bullet::getPosX(){
-	return mPosX;
-}
-
-double Bullet::getPosY(){
-	return mPosY;
-}
-
-double Bullet::getRad(){
-	return BULLET_WIDTH/2;
+	
+	//Initialize the collider
+	mCollider.x = mPosX;
+	mCollider.y = mPosY;
+	mCollider.r = BULLET_WIDTH/2;
 }
 
 bool Bullet::move(){
@@ -613,6 +634,9 @@ bool Bullet::move(){
 	
 	//Move the bullet up or down
 	mPosY += mVelY;
+	
+	mCollider.x = mPosX;
+	mCollider.y = mPosY;
 	
 	//If the bullet went too far to the left, right, up, or down
 	if((mPosY+BULLET_HEIGHT < 0) || (mPosY > SCREEN_HEIGHT) || (mPosX+BULLET_WIDTH < 0) || (mPosX > PLAYFIELD_WIDTH)){
@@ -629,39 +653,46 @@ void Bullet::render(){
 	mBulletTexture->render(mPosX, mPosY, NULL, mAngle);
 }
 
-Enemy::Enemy(int bullets, int bulletFrequency, double sOffsetX, void (*path)(double*, double*, double*, double)){
+Circle& Bullet::getCollider(){
+	return mCollider;
+}
+
+Enemy::Enemy(int bullets, int bulletFrequency, double rotation, double sOffsetX, void (*path)(double*, double*, double*, double, double)){
 	//Initialize the offsets
 	mOffsetX = sOffsetX;
 	mOffsetY = -ENEMY_HEIGHT;
 	
 	//Initialize the angle and rotational speed of the enemy
 	mAngle = 0;
+	mRotation = rotation;
 	
 	//Initialize the number of, angle between, and firing frequency of bullets
 	mBullets = bullets;
 	mBulletAngle = 360/mBullets;
-	mBulletFrequency = 60/bulletFrequency;
+	mBulletFrequency = bulletFrequency;
 	
 	//Initialize the pathing function
 	mPath = path;
+	mPath(&mPosX, &mPosY, &mAngle, mRotation, 0);
 	
 	//Initialize enemy texture
 	mEnemyTexture = &gEnemyTexture;
 	
-	//Initialize the timer;
-	mTimer.start();
+	//Initialize the timers;
+	mDurationTimer.start();
+	mShotTimer.start();
 }
 
 bool Enemy::move(){
 	//Follow the path
-	mPath(&mPosX, &mPosY, &mAngle, mTimer.getTicks());
+	mPath(&mPosX, &mPosY, &mAngle, mRotation, mDurationTimer.getTicks());
 	
 	//Add the offsets
 	mPosX += mOffsetX;
 	mPosY += mOffsetY;
 	
 	//Check if enemy is outside the screen
-	if((mPosY+ENEMY_HEIGHT < 0) || (mPosX+ENEMY_WIDTH < 0) || (mPosX > PLAYFIELD_WIDTH)){
+	if(mPosY+ENEMY_HEIGHT < 0){
 		//Return false if bullet is outside screen
 		return false;
 	}
@@ -670,13 +701,15 @@ bool Enemy::move(){
 	return true;
 }
 
-void Enemy::shoot(int frame){
-	if(frame%mBulletFrequency == 0){
+void Enemy::shoot(){
+	//Shoot every mBulletFrequency mSeconds
+	if(mShotTimer.getTicks() > mBulletFrequency){
 		//Add bullet/s into "barrel" i.e. vector of bullets to be shot
 		for(double i = mAngle; i < mAngle+360; i += mBulletAngle){
 			Bullet bullet(mPosX, mPosY, i);
 			gBullets.push_back(bullet);
 		}
+		mShotTimer.start();
 	}
 }
 
@@ -688,48 +721,58 @@ void Enemy::render(){
 Player::Player(){
 	mPosX = (PLAYFIELD_WIDTH-PLAYER_WIDTH)/2;
 	mPosY = (SCREEN_HEIGHT-PLAYER_HEIGHT)/2;
-}
-
-double Player::getPosX(){
-	return mPosX;
-}
-
-double Player::getPosY(){
-	return mPosY;
-}
-
-double Player::getRad(){
-	return PLAYER_WIDTH/2;
+	
+	//Initialize the collider
+	mCollider.x = mPosX;
+	mCollider.y = mPosY;
+	mCollider.r = PLAYER_WIDTH/2;
 }
 
 void Player::move(SDL_Event* e){
 	//If the mouse is moving
 	SDL_ShowCursor(SDL_ENABLE);
+	gLogoAngle = 45;
 	
-	if(e->type == SDL_MOUSEMOTION){
-		//If the mouse is outside the screen
-		if(e->motion.x < 0){
-			mPosX = 0;
-		}else if(e->motion.x+PLAYER_WIDTH > PLAYFIELD_WIDTH){
-			mPosX = PLAYFIELD_WIDTH-PLAYER_WIDTH;
-		}else{
-			mPosX = e->motion.x;
-			mPosY = e->motion.y;
-			
-			//Hide the cursor from the screen
-			SDL_ShowCursor(SDL_DISABLE);
-		}
+	//If the mouse is outside the screen
+	if(e->motion.x+PLAYER_WIDTH < PLAYFIELD_WIDTH && e->motion.x > 0){
+		mPosX = e->motion.x;
 		
-		if(e->motion.y < 0){
-			mPosY = 0;
-		}else if(e->motion.y+PLAYER_HEIGHT > SCREEN_HEIGHT){
-			mPosY = SCREEN_HEIGHT-PLAYER_HEIGHT;
+		//Hide the cursor from the screen
+		SDL_ShowCursor(SDL_DISABLE);
+	}
+	
+	if(e->motion.y+PLAYER_HEIGHT < SCREEN_HEIGHT && e->motion.y > 0){
+		mPosY = e->motion.y;
+	}
+	
+	mCollider.x = mPosX;
+	mCollider.y = mPosY;
+	
+	if(gGameOver){
+		//Create the collision circle for the restart button
+		Circle mouse;
+		mouse.x = e->motion.x;
+		mouse.y = e->motion.y;
+		mouse.r = 0;
+		
+		//Restart when logo is pressed
+		if(checkCollision(mouse, gLogoCollider)){
+			gLogoAngle = -45;
+			if(e->button.button == SDL_BUTTON_LEFT && e->button.state == SDL_RELEASED){
+				gDurationTimer.start();
+				gScore = 0;
+				gGameOver = false;
+			}
 		}
 	}
 }
 
 void Player::render(){
 	gPlayerTexture.render(mPosX, mPosY);
+}
+
+Circle& Player::getCollider(){
+	return mCollider;
 }
 
 bool init(){
@@ -803,11 +846,32 @@ bool loadMedia(){
 		success = false;
 	}
 	
+	//Load logo texture
+	if(!gLogoTexture.loadFromFile("logo.bmp")){
+		printf("Failed to load logo texture!\n");
+		success = false;
+	}
+	
 	//Open the font
-	gFont = TTF_OpenFont("courier new.ttf", 28);
+	gFont = TTF_OpenFont("consola.ttf", 28);
 	if(gFont == NULL){
 		printf("Failed to load font! SDL_ttf Error: %s\n", TTF_GetError());
 		success = false;
+	}else{
+		//Set text color
+		SDL_Color textColor = {0xD0, 0xD0, 0xD0, 0xFF};
+		
+		//Load 'time' texture
+		if(!gTimeTextTexture.loadFromRenderedText("TIME", textColor)){
+			printf("Unable to render 'time' texture!\n");
+			success = false;
+		}
+		
+		//Load 'score' texture
+		if(!gScoreTextTexture.loadFromRenderedText("SCORE", textColor)){
+			printf("Unable to render 'time' texture!\n");
+			success = false;
+		}
 	}
 	
 	return success;
@@ -820,6 +884,9 @@ void close(){
 	gPlayerTexture.free();
 	gTimeTexture.free();
 	gScoreTexture.free();
+	gTimeTextTexture.free();
+	gScoreTextTexture.free();
+	gLogoTexture.free();
 	
 	//Free global font
 	TTF_CloseFont(gFont);
@@ -837,16 +904,18 @@ void close(){
 	SDL_Quit();
 }
 
-bool checkCollision(double x1, double y1, double r1, double x2, double y2, double r2){
-	if(sqrt(pow(x1-x2, 2)+pow(y1-y2, 2)) < r1+r2){
-		++gScore;
+bool checkCollision(Circle& c1, Circle& c2){
+	if(sqrt(pow(c1.x-c2.x, 2)+pow(c1.y-c2.y, 2)) < c1.r+c2.r){
+		if(!gGameOver){
+			++gScore;
+		}
 		return true;
 	}
 	return false;
 }
 
-void pathing(double* xPos, double* yPos, double* angle, double t){
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
 	*yPos = 0.1*t;
 	*xPos = 0;
-	*angle += 7;
+	*angle += r;
 }
