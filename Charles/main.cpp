@@ -1,4 +1,13 @@
-//g++ main.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -o main
+/*
+Compiled via command line using:
+	g++ main.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -o main
+	
+Future improvements:
+	Replace bullet frequency (int) and pathing (function) with index for two vectors (shot pattern and pathing)
+		Add shot pattern functions and additional pathing functions
+		Shot pattern functions take the ff parameters: xPos, yPos or xVel, yVel
+		Shot pattern functions will change the bullets velocity depending to the length of time it's existed
+*/
 
 //Using SDL, SDL_image, SDL_ttf, standard IO, strings, and string streams
 #include <SDL2/SDL.h>
@@ -15,8 +24,8 @@
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
-const int SCOREBOARD_WIDTH = 100;
-const int PLAYFIELD_WIDTH = SCREEN_WIDTH-SCOREBOARD_WIDTH;
+int SCOREBOARD_WIDTH = 100;
+int PLAYFIELD_WIDTH = SCREEN_WIDTH-SCOREBOARD_WIDTH;
 
 //A circle structure
 struct Circle{
@@ -276,11 +285,12 @@ int main(int argc, char *args[]){
 			LTimer spawnTimer;
 			spawnTimer.start();
 			
-			int spawnRate = 1000;
+			int spawnRate = 1500;
 			
 			//While application is running
 			while(!quit){
-				if(gDurationTimer.getTicks()/1000 >= 5){
+				//Keep running the program for 60 seconds
+				if(gDurationTimer.getTicks()/1000 >= 60){
 					gDurationTimer.pause();
 					gGameOver = true;
 				}
@@ -294,6 +304,19 @@ int main(int argc, char *args[]){
 					
 					//Handle input from the player
 					player.move(&e);
+				}
+				
+				//Screen animation at end and restart of game
+				if(gGameOver && gBullets.empty()){
+					if(PLAYFIELD_WIDTH != 0){
+						PLAYFIELD_WIDTH -= 5;
+						SCOREBOARD_WIDTH += 5;
+					}
+				}else{
+					if(SCOREBOARD_WIDTH != 100){
+						SCOREBOARD_WIDTH -= 5;
+						PLAYFIELD_WIDTH += 5;
+					}
 				}
 				
 				SDL_Rect playfield = {0, 0, PLAYFIELD_WIDTH, SCREEN_HEIGHT};
@@ -311,13 +334,13 @@ int main(int argc, char *args[]){
 				SDL_RenderFillRect(gRenderer, &playfield);
 				
 				//Spawn enemy every "spawnRate" frames
-				if(spawnTimer.getTicks() >= spawnRate && !gGameOver){
+				if(spawnTimer.getTicks() >= spawnRate && !gGameOver && SCOREBOARD_WIDTH == 100){
 					static int theta = 0;
 					
 					//Determines the position of enemy spawn
-					theta += PI/2;
-					Enemy enemy(5, 100, 1, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta), &pathing);
+					Enemy enemy(5, 50, 5, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta*PI/180), &pathing);
 					gEnemies.push_back(enemy);
+					theta += 36;
 					
 					//Restarts timer
 					spawnTimer.start();
@@ -325,9 +348,9 @@ int main(int argc, char *args[]){
 				
 				for(int i = 0; i < gEnemies.size(); ++i){
 					//Move/rotate enemies
-					if(!gEnemies[i].move()){
+					if(!gEnemies[i].move() || gGameOver){
 						gEnemies.erase(gEnemies.begin()+i);
-					}else if(!gGameOver){
+					}else{
 						//Shoot bullet;
 						gEnemies[i].shoot();
 					}
@@ -692,7 +715,7 @@ bool Enemy::move(){
 	mPosY += mOffsetY;
 	
 	//Check if enemy is outside the screen
-	if(mPosY+ENEMY_HEIGHT < 0){
+	if(mPosY > SCREEN_HEIGHT){
 		//Return false if bullet is outside screen
 		return false;
 	}
@@ -868,7 +891,7 @@ bool loadMedia(){
 		}
 		
 		//Load 'score' texture
-		if(!gScoreTextTexture.loadFromRenderedText("SCORE", textColor)){
+		if(!gScoreTextTexture.loadFromRenderedText("HITS", textColor)){
 			printf("Unable to render 'time' texture!\n");
 			success = false;
 		}
@@ -914,8 +937,55 @@ bool checkCollision(Circle& c1, Circle& c2){
 	return false;
 }
 
+//Moves in a straight line without rotating, then rotates after one second
 void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = 0.1*t;
+	*yPos = t/10;
 	*xPos = 0;
-	*angle += r;
+	if(t > 1000){
+		*angle += r;
+	}else{
+		*angle += 0;
+	}
 }
+
+/*Moves in a catastrophic sine wave
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
+	*yPos = t/10;
+	*xPos = (t/10)*sin(t/100);
+	*angle += r;
+}*/
+
+/*Moves in a damped sine wave
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
+	*yPos = t/10;
+	*xPos = 5000*sin(t/100)/(t/10);
+	*angle += r;
+}*/
+
+/*Moves in a cycloid
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
+	*yPos = t/10-30.0*sin(t/100);
+	*xPos = 1-30.0*cos(t/100);
+	*angle += r;
+}*/
+
+/*Moves in an exponential curve
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
+	*yPos = t;
+	*xPos = exp(t/100);
+	*angle += r;
+}*/
+
+/*Moves in an Archimedean spiral
+void pathing(double* xPos, double* yPos, double* angle, double r, double t){
+	double lastT;
+	if(t/10 < SCREEN_WIDTH/4){
+		*yPos = t/10;
+		*xPos = 0;
+		lastT = t/10;
+	}else{
+		*xPos = (cos((t-lastT)/100)*exp((t-lastT)/1000))*10;
+		*yPos = -(sin((t-lastT)/100)*exp((t-lastT)/1000))*10+SCREEN_WIDTH/4;
+	}
+	*angle += r;
+}*/
