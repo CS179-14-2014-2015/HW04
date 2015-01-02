@@ -3,8 +3,8 @@ Compiled via command line using:
 	g++ main.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -o main
 	
 Future improvements:
-	Replace bullet frequency (int) and pathing (function) with index for two vectors (shot pattern and pathing)
-		Add shot pattern functions and additional pathing functions
+	Replace bullet frequency (int) and followPath (function) with index for two vectors (shot pattern and followPath)
+		Add shot pattern functions and additional followPath functions
 		Shot pattern functions take the ff parameters: xPos, yPos or xVel, yVel
 		Shot pattern functions will change the bullets velocity depending to the length of time it's existed
 */
@@ -43,27 +43,27 @@ class LTexture{
 		~LTexture();
 		
 		//Loads image at specified path
-		bool loadFromFile(std::string path);
+		bool loadFromFile(std::string);
 		
 		#ifdef _SDL_TTF_H
 		//Creates image from font string
-		bool loadFromRenderedText(std::string textureText, SDL_Color textColor);
+		bool loadFromRenderedText(std::string, SDL_Color);
 		#endif
 		
 		//Deallocates texture
 		void free();
 		
 		//Set color modulation
-		void setColor(Uint8 red, Uint8 green, Uint8 blue);
+		void setColor(Uint8, Uint8, Uint8);
 		
 		//Set blending
-		void setBlendMode(SDL_BlendMode blending);
+		void setBlendMode(SDL_BlendMode);
 		
 		//Set alpha modulation
 		void setAlpha(Uint8 alpha);
 		
 		//Renders texture at given point
-		void render(int x, int y, SDL_Rect* clip = NULL, double angle = 0.0, SDL_Point* center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE);
+		void render(int, int, SDL_Rect* = NULL, double = 0.0, SDL_Point* = NULL, SDL_RendererFlip = SDL_FLIP_NONE);
 		
 		//Gets image dimensions
 		int getWidth();
@@ -78,6 +78,7 @@ class LTexture{
 		int mHeight;
 };
 
+//Timer wrapper class
 class LTimer{
 	public:
 		//Initializes variables
@@ -108,7 +109,7 @@ class LTimer{
 		bool mStarted;
 };
 
-//The bullet that will move around on the screen
+//The bullets
 class Bullet{
 	public:
 		//The dimensions of the bullet
@@ -116,10 +117,10 @@ class Bullet{
 		static const int BULLET_HEIGHT = 20;
 		
 		//Maximum axis velocity of the bullet
-		static const int BULLET_VEL = 5;
+		static const int MAX_VEL = 5;
 		
 		//Initializes the variables
-		Bullet(double, double, double);
+		Bullet(int, double, double, double);
 		
 		//Moves the bullet
 		bool move();
@@ -133,19 +134,29 @@ class Bullet{
 		//The X and Y offsets of the bullet
 		double mPosX, mPosY;
 		
+		//Velocity multiplier
+		int mVel;
+		
 		//The velocity of the bullet
 		double mVelX, mVelY;
 		
 		//The angle of the bullet
 		double mAngle;
 		
+		//The "index" for the bullet speed pattern
+		int mPattern;
+		
 		//Pointer to bullet texture image
 		LTexture* mBulletTexture;
 		
 		//Bullet's collision circle
 		Circle mCollider;
+		
+		//Bullet timer
+		LTimer mTimer;
 };
 
+//The enemmies
 class Enemy{
 	public:
 		//The dimensions of the enemy
@@ -153,7 +164,7 @@ class Enemy{
 		static const int ENEMY_HEIGHT = 20;
 		
 		//Initializes the variables
-		Enemy(int, int, double, double, void (*)(double*, double*, double*, double, double));
+		Enemy(int, double, double);
 		
 		//Shoot the friggin' bullets
 		void shoot();
@@ -171,15 +182,17 @@ class Enemy{
 		//The X and Y offsets of the enemy
 		double mOffsetX, mOffsetY;
 		
-		//The angle of the enemy
+		//The angle and rotational speed of the enemy
 		double mAngle, mRotation;
 		
-		//The number of, angle between, and frequency of bullets fired
-		double mBullets, mBulletAngle;
-		int mBulletFrequency;
+		//The number of and angle between bullets fired radially
+		double mBulletsR, mBulletAngle;
 		
-		//Function used for pathing
-		void (*mPath)(double*, double*, double*, double, double);
+		//The number and firing frequency of bullets fired linearly
+		int mBulletsL, mBulletFrequency;
+		
+		//The "index" for the enemy path
+		int mPath;
 		
 		//Enemy texture
 		LTexture* mEnemyTexture;
@@ -191,6 +204,7 @@ class Enemy{
 		LTimer mShotTimer;
 };
 
+//The player
 class Player{
 	public:
 		static const int PLAYER_WIDTH = 20;
@@ -222,8 +236,9 @@ void close();
 //Checks collision between two circles
 bool checkCollision(Circle&, Circle&);
 
-//Functions for pathing
-void pathing(double*, double*, double*, double, double);	
+//Functions for enemy path and bullet firing frequency
+void followPath(int, double*, double*, double*, double);
+bool shootBullet(int, int*, int*, double);
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
@@ -245,16 +260,17 @@ LTexture gTimeTexture, gTimeTextTexture;
 //Logo texture
 LTexture gLogoTexture;
 Circle gLogoCollider;
-double gLogoAngle = 45;;
+double gLogoAngle = 45;
 
-//Game duration timer
+//Things shown on scoreboard
 LTimer gDurationTimer;
+int gScore = 0;
 
 //Vectors for bullets and enemies
 std::vector<Bullet> gBullets;
 std::vector<Enemy> gEnemies;
 
-int gScore = 0;
+//Used for checking if the game is over
 bool gGameOver = false;
 
 int main(int argc, char *args[]){	
@@ -316,6 +332,7 @@ int main(int argc, char *args[]){
 					if(SCOREBOARD_WIDTH != 100){
 						SCOREBOARD_WIDTH -= 5;
 						PLAYFIELD_WIDTH += 5;
+						gDurationTimer.start();
 					}
 				}
 				
@@ -335,12 +352,14 @@ int main(int argc, char *args[]){
 				
 				//Spawn enemy every "spawnRate" frames
 				if(spawnTimer.getTicks() >= spawnRate && !gGameOver && SCOREBOARD_WIDTH == 100){
-					static int theta = 0;
+					static double xOffset = SCREEN_WIDTH/4;
 					
 					//Determines the position of enemy spawn
-					Enemy enemy(5, 50, 5, (PLAYFIELD_WIDTH-20)/2+((PLAYFIELD_WIDTH-20)/2-10)*cos(theta*PI/180), &pathing);
+					Enemy enemy(gDurationTimer.getTicks()/10000, xOffset+PLAYFIELD_WIDTH/2, -Enemy::ENEMY_HEIGHT);
 					gEnemies.push_back(enemy);
-					theta += 36;
+					
+					//Change the xOffset
+					xOffset *= -1;
 					
 					//Restarts timer
 					spawnTimer.start();
@@ -630,20 +649,29 @@ bool LTimer::isPaused(){
 	return mPaused && mStarted;
 }
 
-Bullet::Bullet(double sPosX, double sPosY, double sAngle){
+Bullet::Bullet(int pattern, double sPosX, double sPosY, double sAngle){
 	//Initializes the offsets
 	mPosX = sPosX;
 	mPosY = sPosY;
 	
+	//Initialize the velocity multiplier
+	mVel = MAX_VEL;
+	
 	//Initializes the velocity
-	mVelX = cos((sAngle+90)*PI/180)*BULLET_VEL;
-	mVelY = sin((sAngle+90)*PI/180)*BULLET_VEL;
+	mVelX = cos((sAngle+90)*PI/180)*mVel;
+	mVelY = sin((sAngle+90)*PI/180)*mVel;
 	
 	//Initialize the angle
 	mAngle = sAngle;
 	
+	//Initialize the bullet speed pattern
+	mPattern = pattern;
+	
 	//Initializes the bullet pointer
 	mBulletTexture = &gBulletTexture;
+	
+	//Initialize the bullet timer
+	mTimer.start();
 	
 	//Initialize the collider
 	mCollider.x = mPosX;
@@ -652,12 +680,18 @@ Bullet::Bullet(double sPosX, double sPosY, double sAngle){
 }
 
 bool Bullet::move(){
-	//Move the bullet left or right
+	//Move the bullet
 	mPosX += mVelX;
-	
-	//Move the bullet up or down
 	mPosY += mVelY;
 	
+	//Shoot "fireworks"
+	if(mPattern == 5 && mTimer.getTicks() >= 500){
+		Enemy enemy(6, mPosX, mPosY);
+		enemy.shoot();
+		mPosY = SCREEN_HEIGHT+1;
+	}
+	
+	//Change the collider position
 	mCollider.x = mPosX;
 	mCollider.y = mPosY;
 	
@@ -680,23 +714,35 @@ Circle& Bullet::getCollider(){
 	return mCollider;
 }
 
-Enemy::Enemy(int bullets, int bulletFrequency, double rotation, double sOffsetX, void (*path)(double*, double*, double*, double, double)){
+Enemy::Enemy(int path, double sOffsetX, double sOffsetY){
 	//Initialize the offsets
-	mOffsetX = sOffsetX;
-	mOffsetY = -ENEMY_HEIGHT;
+	mOffsetX = mPosX = sOffsetX;
+	mOffsetY = mPosY = sOffsetY;
 	
 	//Initialize the angle and rotational speed of the enemy
 	mAngle = 0;
-	mRotation = rotation;
+	mRotation = 0;
 	
-	//Initialize the number of, angle between, and firing frequency of bullets
-	mBullets = bullets;
-	mBulletAngle = 360/mBullets;
-	mBulletFrequency = bulletFrequency;
+	//Initialize the number of and angle between of bullets
+	switch(path){
+		case 0: case 1: case 2: case 6:
+			mBulletsR = 10;
+			break;
+		case 3: case 5:
+			mBulletsR = 1;
+			break;
+		case 4:
+			mBulletsR = 4;
+			break;
+	}
 	
-	//Initialize the pathing function
+	mBulletAngle = 360/mBulletsR;
+
+	mBulletsL = 0;
+	mBulletFrequency = 0;
+	
+	//Initialize the enemy path
 	mPath = path;
-	mPath(&mPosX, &mPosY, &mAngle, mRotation, 0);
 	
 	//Initialize enemy texture
 	mEnemyTexture = &gEnemyTexture;
@@ -708,11 +754,13 @@ Enemy::Enemy(int bullets, int bulletFrequency, double rotation, double sOffsetX,
 
 bool Enemy::move(){
 	//Follow the path
-	mPath(&mPosX, &mPosY, &mAngle, mRotation, mDurationTimer.getTicks());
+	followPath(mPath, &mPosX, &mPosY, &mRotation, mDurationTimer.getTicks());
 	
 	//Add the offsets
 	mPosX += mOffsetX;
 	mPosY += mOffsetY;
+	mAngle += mRotation;
+	
 	
 	//Check if enemy is outside the screen
 	if(mPosY > SCREEN_HEIGHT){
@@ -726,12 +774,13 @@ bool Enemy::move(){
 
 void Enemy::shoot(){
 	//Shoot every mBulletFrequency mSeconds
-	if(mShotTimer.getTicks() > mBulletFrequency){
+	if(shootBullet(mPath, &mBulletsL, &mBulletFrequency, mShotTimer.getTicks())){
 		//Add bullet/s into "barrel" i.e. vector of bullets to be shot
 		for(double i = mAngle; i < mAngle+360; i += mBulletAngle){
-			Bullet bullet(mPosX, mPosY, i);
+			Bullet bullet(mPath, mPosX, mPosY, i);
 			gBullets.push_back(bullet);
 		}
+		++mBulletsL;
 		mShotTimer.start();
 	}
 }
@@ -782,7 +831,7 @@ void Player::move(SDL_Event* e){
 		if(checkCollision(mouse, gLogoCollider)){
 			gLogoAngle = -45;
 			if(e->button.button == SDL_BUTTON_LEFT && e->button.state == SDL_RELEASED){
-				gDurationTimer.start();
+				gDurationTimer.stop();
 				gScore = 0;
 				gGameOver = false;
 			}
@@ -938,54 +987,60 @@ bool checkCollision(Circle& c1, Circle& c2){
 }
 
 //Moves in a straight line without rotating, then rotates after one second
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = t/10;
-	*xPos = 0;
-	if(t > 1000){
-		*angle += r;
-	}else{
-		*angle += 0;
+void followPath(int i, double* xPos, double* yPos, double* rot, double t){
+	*rot = 5;
+	switch(i){
+		case 0:
+			//Moves in a straight line
+			*yPos = t/10;
+			*xPos = 0;
+			break;
+		case 1:
+			//Moves in a catastrophic sine wave
+			*yPos = t/10;
+			*xPos = (t/100)*sin(t/100);
+			break;
+		case 2:
+			//Moves in a damped sine wave
+			*yPos = t/10;
+			*xPos = 5000*sin(t/100)/(t/10);
+			break;
+		case 3:
+			//Moves in a cycloid
+			*yPos = t/10-30.0*sin(t/100);
+			*xPos = 1-30.0*cos(t/100);
+			*rot = 10;
+			break;
+		case 4:
+			//Moves in an exponential curve
+			*yPos = t;
+			*xPos = exp(t/100);
+			break;
+		case 5:
+			//Also moves in a straight line but rotates faster
+			*yPos = t/10;
+			*xPos = 0;
+			*rot = SCREEN_HEIGHT/360;
+			break;
 	}
 }
 
-/*Moves in a catastrophic sine wave
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = t/10;
-	*xPos = (t/10)*sin(t/100);
-	*angle += r;
-}*/
-
-/*Moves in a damped sine wave
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = t/10;
-	*xPos = 5000*sin(t/100)/(t/10);
-	*angle += r;
-}*/
-
-/*Moves in a cycloid
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = t/10-30.0*sin(t/100);
-	*xPos = 1-30.0*cos(t/100);
-	*angle += r;
-}*/
-
-/*Moves in an exponential curve
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	*yPos = t;
-	*xPos = exp(t/100);
-	*angle += r;
-}*/
-
-/*Moves in an Archimedean spiral
-void pathing(double* xPos, double* yPos, double* angle, double r, double t){
-	double lastT;
-	if(t/10 < SCREEN_WIDTH/4){
-		*yPos = t/10;
-		*xPos = 0;
-		lastT = t/10;
-	}else{
-		*xPos = (cos((t-lastT)/100)*exp((t-lastT)/1000))*10;
-		*yPos = -(sin((t-lastT)/100)*exp((t-lastT)/1000))*10+SCREEN_WIDTH/4;
+bool shootBullet(int i, int* n, int* f, double t){
+	switch(i){
+		case 0:
+			*f = 1000;
+			if(*n%2 > 0){*f = 100;}	
+			break;
+		case 1: case 2: case 5:
+			*f = 500;
+			break;
+		case 3: case 4:
+			*f = 50;
+			break;
 	}
-	*angle += r;
-}*/
+	if(t >= *f){
+		return true;
+	}else{
+		return false;
+	}
+}
