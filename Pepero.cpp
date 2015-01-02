@@ -61,7 +61,7 @@ void Player::handleEvent( SDL_Event& e )
 
 void Player::render()
 {
-	filledCircleRGBA(gRenderer, mPosX, mPosY, 10, 0xFF,0xFF,0xFF,0xFF);
+	filledCircleRGBA(gRenderer, mPosX, mPosY, RADIUS, 0xFF,0xFF,0xFF,0xFF);
 }
 
 bool init()
