@@ -4,9 +4,14 @@
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
+#include <string>
+#include <vector>
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
+const int SCREEN_FPS = 30;
+const int SCREEN_TICK_PER_FRAME = 1000 / SCREEN_FPS;
+int countedFrames = 0;
 
 SDL_Window* gWindow = NULL;
 
@@ -174,44 +179,106 @@ Texture score;
 class Bullet
 {
     public:
+        static const int bRadius = 25;
 
         Bullet();
+        void move(int x, int y);
+        void render();
         int getX();
         int getY();
-        int getR();
-        void render();
+        ~Bullet();
 
     private:
-        int x, y;
-        int r;
+        int bPosX, bPosY;
+        int bInitX, bInitY;
 };
 
 Bullet::Bullet()
 {
-    x = 100;
-    y = 200;
-    r = 10;
+    bPosX = rand() % SCREEN_WIDTH;
+    bPosY = rand() % SCREEN_HEIGHT;
 }
 
-int Bullet::getX()
+Bullet::~Bullet()
 {
-    return x;
-}
-
-int Bullet::getY()
-{
-    return y;
-}
-
-int Bullet::getR()
-{
-    return r;
 }
 
 void Bullet::render()
 {
-    filledCircleRGBA(renderer, x, y, r, 0, 255, 255, 255);
+    filledCircleRGBA(renderer, bPosX, bPosY, bRadius, 0xFF,0x0,0x0,0xFF);
 }
+
+int Bullet::getX()
+{
+    return bPosX;
+}
+
+int Bullet::getY()
+{
+    return bPosY;
+}
+
+void Bullet::move(int x, int y)
+{
+    bPosX += x;
+    bPosY += y;
+    if (bPosX > SCREEN_WIDTH || bPosY > SCREEN_HEIGHT)
+    {
+        bPosX = rand() % SCREEN_WIDTH;
+        bPosY = rand() % SCREEN_HEIGHT;
+    }
+}
+
+class BulletGroup
+{
+    public:
+
+        BulletGroup();
+        void moveStraight();
+        void moveCircular();
+        void render();
+        ~BulletGroup();
+
+    private:
+        std::vector<Bullet> bGroup;
+};
+
+BulletGroup::BulletGroup()
+{
+    for(int i = 0; i < 10; i++)
+        bGroup.push_back(Bullet());
+}
+
+BulletGroup::~BulletGroup()
+{
+}
+
+void BulletGroup::moveStraight()
+{
+    for(auto &x:bGroup)
+    {
+        static int bVelX = rand() % 5 - 1;
+        static int bVelY = rand() % 5 - 1;
+        x.move(bVelX, bVelY);
+    }
+}
+
+void BulletGroup::moveCircular()
+{
+    for(auto &x:bGroup)
+    {
+        static int bVelX = rand() % 3 - 1;
+        static int bVelY = rand() % 3 - 1;
+        x.move(bVelX, bVelY);
+    }
+}
+
+void BulletGroup::render()
+{
+    for(auto &x:bGroup)
+        x.render();
+}
+
 
 class Player
 {
@@ -225,7 +292,7 @@ class Player
 
 		void render();
 
-		//Circle& getCollider();
+		~Player();
 
 		bool collisionDetection(Player* a, Bullet* b);
 
@@ -236,10 +303,6 @@ class Player
         bool start = false;
 		int mPosX, mPosY;
 		int hits;
-		//Circle collider;
-
-		//Moves the collision circle relative to the dot's offset
-		//void shiftColliders();
 };
 
 Player::Player()
@@ -248,6 +311,10 @@ Player::Player()
     mPosY = SCREEN_HEIGHT/2;
     //collider.r = RADIUS;
     hits = 0;
+}
+
+Player::~Player()
+{
 }
 
 void Player::handleEvent(SDL_Event &e)
@@ -303,9 +370,9 @@ void Player::render()
 	filledCircleRGBA(renderer, mPosX, mPosY, RADIUS, 255, 255, 255, 255);
 }
 
-/*bool Player::collisionDetection(Player* a, Bullet* b)
+bool Player::collisionDetection(Player* a, Bullet* b)
 {
-    int totalRadiusSquared = a->RADIUS + b->getR();
+    int totalRadiusSquared = a->RADIUS + b->bRadius;
 	totalRadiusSquared *= totalRadiusSquared;
 
     if( distanceSquared(a->mPosX, a->mPosY, b->getX(), b->getY()) < totalRadiusSquared)
@@ -317,7 +384,7 @@ void Player::render()
     {
         return false;
     }
-}*/
+}
 
 int Player::getHits()
 {
@@ -549,12 +616,14 @@ int main(int argc, char* args[])
 
             Player player;
 
-            Bullet b;
+            BulletGroup lol, meh;
 
+            uint initTimer = SDL_GetTicks();
             //While application is running
             while(!quit)
             {
-                //if (player.collisionDetection(&player, &b) == true)
+                uint capTimer = SDL_GetTicks();
+                if (player.collisionDetection(&player, &meh) == true)
                 {
                     loadScore(player.getHits());
                     //Handle events on queue
@@ -570,6 +639,9 @@ int main(int argc, char* args[])
                         player.handleEvent(e);
                     }
 
+                    lol.moveStraight();
+                    meh.moveCircular();
+
                     //Clear screen
                     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                     SDL_RenderClear(renderer);
@@ -578,9 +650,19 @@ int main(int argc, char* args[])
                     player.render();
                     s.render();
                     score.render(SCREEN_WIDTH - score.getWidth(),0);
-                    b.render();
+                    lol.render();
+                    meh.render();
+
                     //Update screen
                     SDL_RenderPresent(renderer);
+                    ++countedFrames;
+
+                    //If frame finished early
+                    if( capTimer < SCREEN_TICK_PER_FRAME )
+                    {
+                        //Wait remaining time
+                        SDL_Delay( SCREEN_TICK_PER_FRAME - capTimer );
+                    }
                 }
             }
         }
