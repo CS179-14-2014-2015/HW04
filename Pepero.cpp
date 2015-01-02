@@ -162,12 +162,56 @@ bool init();
 
 bool loadStart();
 
-bool loadScore();
+bool loadScore(int hits);
 
 void close();
 
+double distanceSquared(int x1, int y1, int x2, int y2);
+
 Texture start;
 Texture score;
+
+class Bullet
+{
+    public:
+
+        Bullet();
+        int getX();
+        int getY();
+        int getR();
+        void render();
+
+    private:
+        int x, y;
+        int r;
+};
+
+Bullet::Bullet()
+{
+    x = 100;
+    y = 200;
+    r = 10;
+}
+
+int Bullet::getX()
+{
+    return x;
+}
+
+int Bullet::getY()
+{
+    return y;
+}
+
+int Bullet::getR()
+{
+    return r;
+}
+
+void Bullet::render()
+{
+    filledCircleRGBA(renderer, x, y, r, 0, 255, 255, 255);
+}
 
 class Player
 {
@@ -175,26 +219,82 @@ class Player
 
 		static const int RADIUS = 10;
 
-		Player()
-		{
-		}
+		Player();
 
 		void handleEvent(SDL_Event &e);
 
 		void render();
 
+		//Circle& getCollider();
+
+		bool collisionDetection(Player* a, Bullet* b);
+
+		int getHits();
+
     private:
 
+        bool start = false;
 		int mPosX, mPosY;
+		int hits;
+		//Circle collider;
+
+		//Moves the collision circle relative to the dot's offset
+		//void shiftColliders();
 };
+
+Player::Player()
+{
+    mPosX = SCREEN_WIDTH/2;
+    mPosY = SCREEN_HEIGHT/2;
+    //collider.r = RADIUS;
+    hits = 0;
+}
 
 void Player::handleEvent(SDL_Event &e)
 {
-    SDL_ShowCursor(0);
-    if (e.type == SDL_MOUSEMOTION)
+    if (!start)
     {
-        mPosX = e.motion.x;
-        mPosY = e.motion.y;
+        if (e.type = SDL_MOUSEBUTTONUP)
+        {
+            if(e.button.button == SDL_BUTTON_LEFT)
+            {
+                start = true;
+                mPosX = e.button.x;
+                mPosY = e.button.y;
+            }
+        }
+    }
+    if (start)
+    {
+        SDL_ShowCursor(0);
+        if (e.type == SDL_MOUSEMOTION)
+        {
+            mPosX = e.motion.x;
+            mPosY = e.motion.y;
+
+            for (int i = (RADIUS); i >= 0; i--)
+            {
+                if (mPosX <= i)
+                {
+                    mPosX += (RADIUS-i);
+                }
+
+                if (mPosX >= (SCREEN_WIDTH - i))
+                {
+                    mPosX -= (RADIUS-i);
+                }
+
+                if (mPosY <= i)
+                {
+                    mPosY += (RADIUS-i);
+                }
+
+                if (mPosY >= (SCREEN_HEIGHT - i))
+                {
+                    mPosY -= (RADIUS-i);
+                }
+            }
+        }
     }
 }
 
@@ -203,6 +303,33 @@ void Player::render()
 	filledCircleRGBA(renderer, mPosX, mPosY, RADIUS, 255, 255, 255, 255);
 }
 
+/*bool Player::collisionDetection(Player* a, Bullet* b)
+{
+    int totalRadiusSquared = a->RADIUS + b->getR();
+	totalRadiusSquared *= totalRadiusSquared;
+
+    if( distanceSquared(a->mPosX, a->mPosY, b->getX(), b->getY()) < totalRadiusSquared)
+    {
+        hits += 1;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}*/
+
+int Player::getHits()
+{
+    return hits;
+}
+
+/*void Player::shiftColliders()
+{
+    collider.x = mPosX;
+    collider.y = mPosY;
+}*/
+
 class Start
 {
     public:
@@ -210,7 +337,7 @@ class Start
 
         ~Start();
 
-        bool click(SDL_Event &e);
+        void click(SDL_Event &e);
 
         void render();
 
@@ -235,10 +362,9 @@ Start::~Start()
 {
 }
 
-bool Start::click(SDL_Event &e)
+void Start::click(SDL_Event &e)
 {
-    bool clicked = false;
-    if (e.type == SDL_MOUSEBUTTONUP)
+    if (e.type == SDL_MOUSEBUTTONDOWN)
     {
         if (e.button.button == SDL_BUTTON_LEFT)
         {
@@ -248,11 +374,9 @@ bool Start::click(SDL_Event &e)
             if ((mouseX > getX()) && (mouseX < (getX() + start.getWidth())) && (mouseY > getY()) && (mouseY < (getY() + start.getHeight())))
             {
                 start.free();
-                clicked = true;
             }
         }
     }
-    return clicked;
 }
 
 void Start::render()
@@ -269,6 +393,12 @@ int Start::getY()
 {
     return y;
 }
+
+class ScoreBoard
+{
+    ScoreBoard();
+
+};
 
 bool init()
 {
@@ -344,9 +474,11 @@ bool loadStart()
 	return success;
 }
 
-bool loadScore()
+bool loadScore(int hits)
 {
     bool success = true;
+
+    std::string text = "Hits " + std::to_string(hits);
 
     font = TTF_OpenFont("scoreboard.ttf", 32);
     if(font == NULL)
@@ -357,8 +489,8 @@ bool loadScore()
 	else
 	{
 		//Render text
-		SDL_Color textColor = {255, 255, 255};
-		if(!score.loadFromText("900", textColor))
+		SDL_Color textColor = {0, 0, 255};
+		if(!score.loadFromText(text, textColor))
 		{
 			printf("Failed to render text texture!\n");
 			success = false;
@@ -382,6 +514,13 @@ void close()
 	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
+}
+
+double distanceSquared( int x1, int y1, int x2, int y2 )
+{
+	int deltaX = x2 - x1;
+	int deltaY = y2 - y1;
+	return deltaX*deltaX + deltaY*deltaY;
 }
 
 int main(int argc, char* args[])
@@ -409,37 +548,44 @@ int main(int argc, char* args[])
             Start s;
 
             Player player;
-			//While application is running
-			while(!quit)
-			{
-				//Handle events on queue
-				while(SDL_PollEvent(&e) != 0)
-				{
-					//User requests quit
-					if(e.type == SDL_QUIT)
-					{
-						quit = true;
-					}
 
-                    s.click(e);
-				}
+            Bullet b;
 
-				//Clear screen
-				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-				SDL_RenderClear(renderer);
-
-				//Render objects
-                s.render();
-                if (s.click(e) == true)
+            //While application is running
+            while(!quit)
+            {
+                //if (player.collisionDetection(&player, &b) == true)
                 {
-                    player.render();
-                }
+                    loadScore(player.getHits());
+                    //Handle events on queue
+                    while(SDL_PollEvent(&e) != 0)
+                    {
+                        //User requests quit
+                        if(e.type == SDL_QUIT)
+                        {
+                            quit = true;
+                        }
 
-				//Update screen
-				SDL_RenderPresent(renderer);
-			}
-		}
-	}
+                        s.click(e);
+                        player.handleEvent(e);
+                    }
+
+                    //Clear screen
+                    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(renderer);
+
+                    //Render objects
+                    player.render();
+                    s.render();
+                    score.render(SCREEN_WIDTH - score.getWidth(),0);
+                    b.render();
+                    //Update screen
+                    SDL_RenderPresent(renderer);
+                }
+            }
+        }
+    }
+
 
 	//Free resources and close SDL
 	close();
