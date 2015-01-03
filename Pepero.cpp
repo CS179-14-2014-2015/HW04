@@ -149,6 +149,7 @@ double distanceSquared(int x1, int y1, int x2, int y2);
 
 Texture start;
 Texture score;
+Texture background;
 
 class Bullet
 {
@@ -485,6 +486,19 @@ bool loadStart()
     return success;
 }
 
+bool loadBackground()
+{
+    bool success = true;
+
+    if (!background.loadFromFile("background.bmp"))
+    {
+        printf( "Failed to load background texture!\n" );
+        success = false;
+    }
+
+    return success;
+}
+
 bool loadScore(int hits)
 {
     bool success = true;
@@ -555,8 +569,12 @@ int main(int argc, char* args[])
             Player player;
             BulletGroup lol, meh;
 
+            int scrollingOffset = 0;
+
             while(!quit)
             {
+                loadBackground();
+
                 uint capTimer = SDL_GetTicks();
 
                 if (player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &meh))
@@ -578,8 +596,17 @@ int main(int argc, char* args[])
                 lol.moveStraight();
                 meh.moveCircular();
 
+                ++scrollingOffset;
+				if(scrollingOffset > background.getHeight())
+				{
+					scrollingOffset = 0;
+				}
+
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                 SDL_RenderClear(renderer);
+
+                background.render(0, scrollingOffset);
+				background.render(0, scrollingOffset - background.getHeight());
 
                 player.render();
                 s.render();
