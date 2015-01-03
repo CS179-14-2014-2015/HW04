@@ -4,7 +4,6 @@
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
-#include <string>
 #include <vector>
 
 const int SCREEN_WIDTH = 640;
@@ -154,13 +153,14 @@ Texture background;
 class Bullet
 {
     public:
-        static const int bRadius = 25;
+        static const int bRadius = 5;
 
         Bullet();
         void move(int x, int y);
         void render();
         int getX();
         int getY();
+        void Destroy();
         ~Bullet();
 
     private:
@@ -205,6 +205,11 @@ int Bullet::getY()
     return bPosY;
 }
 
+void Bullet::Destroy()
+{
+ delete this;
+}
+
 class BulletGroup
 {
     public:
@@ -239,6 +244,7 @@ void BulletGroup::moveCircular()
 
 void BulletGroup::moveStraight()
 {
+
     for(auto &x:bGroup)
     {
         static int bVelX = rand() % 5 - 1;
@@ -285,6 +291,7 @@ Player::~Player()
 
 bool Player::collisionDetection(Player* a, BulletGroup* b)
 {
+    int counter = 0;
     for(Bullet x : b->bGroup)
     {
         int totalRadiusSquared = a->pRadius + x.bRadius;
@@ -293,8 +300,10 @@ bool Player::collisionDetection(Player* a, BulletGroup* b)
         if(distanceSquared(a->mPosX, a->mPosY, x.getX(), x.getY()) < totalRadiusSquared)
         {
             hits += 1;
+            b->bGroup[counter] = Bullet();
             return true;
         }
+        ++counter;
     }
 
     return false;
