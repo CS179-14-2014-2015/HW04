@@ -164,7 +164,6 @@ class Bullet
         void Destroy();
         ~Bullet();
 
-    private:
         int bPosX, bPosY;
         int bInitX, bInitY;
 };
@@ -601,7 +600,7 @@ int main(int argc, char* args[])
                       s.click(e, player);
                       player.handleEvent(e);
                   }
-                  if (gameTimer < 5000) // in milliseconds :)
+                  if (gameTimer < 60000) // in milliseconds :)
                   {
                     lol.moveStraight();
                     meh.moveCircular();
