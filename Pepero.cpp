@@ -150,6 +150,7 @@ double distanceSquared(int x1, int y1, int x2, int y2);
 Texture start;
 Texture score;
 Texture background;
+Texture gameOver;
 
 class Bullet
 {
@@ -342,7 +343,6 @@ class Player
         bool hasStarted();
         ~Player();
 
-    private:
         int mPosX, mPosY;
         int hits;
 };
@@ -599,6 +599,31 @@ bool loadScore(int hits)
     return success;
 }
 
+bool loadGameOver()
+{
+    bool success = true;
+    std::string text = "Game Over!";
+    font = TTF_OpenFont("scoreboard.ttf", 32);
+
+    if(font == nullptr)
+    {
+        printf("Failed to load scoreboard font! SDL_ttf Error: %s\n", TTF_GetError());
+        success = false;
+    }
+    else
+    {
+        SDL_Color textColor = {0, 0, 255};
+
+        if(!gameOver.loadFromText(text, textColor))
+        {
+            printf("Failed to render text texture!\n");
+            success = false;
+        }
+    }
+
+    return success;
+}
+
 double distanceSquared( int x1, int y1, int x2, int y2 )
 {
     int deltaX = x2 - x1;
@@ -721,9 +746,15 @@ int main(int argc, char* args[])
 
                 else {
                 // Game Over code here
-                SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0xFF);
-                SDL_RenderClear(renderer);
-                SDL_RenderPresent(renderer);
+                 player.mPosX = 800;
+                 SDL_ShowCursor(1);
+
+                 loadGameOver();
+                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                 SDL_RenderClear(renderer);
+                 gameOver.render((SCREEN_WIDTH-gameOver.getWidth())/2, SCREEN_HEIGHT/2-gameOver.getHeight());
+                 score.render((SCREEN_WIDTH-score.getWidth())/2,SCREEN_HEIGHT/2);
+                 SDL_RenderPresent(renderer);
 
                 }
 
