@@ -5,7 +5,7 @@ OBJ = BulletHell.cpp
 CC = g++
 
 #--Libraries we're linking against.--
-LIBRARY_LINKS = -lSDL2 -lSDL2_image -lSDL2_ttf
+LIBRARY_LINKS = -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
 
 #--Name of our exectuable--
 OBJ_NAME = BulletHell
