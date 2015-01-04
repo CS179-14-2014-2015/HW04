@@ -217,6 +217,8 @@ class BulletGroup
         BulletGroup();
         void moveHorizontal();
         void moveStraight();
+        void moveCircleOut();
+        void moveCircleIn();
         void setStraight();
         void setHorizontal();
         void setCircle();
@@ -271,11 +273,45 @@ void BulletGroup::setCircle(){
 
  for(auto &x:bGroup)
     {
-        x.bPosX = length * cos (angle);
+        x.bPosX = length * cos (angle) + SCREEN_WIDTH / 2;
         x.bPosY = length * sin (angle) + SCREEN_HEIGHT / 2;
         ++counter;
         angle += angle_stepsize;
     }
+}
+
+void BulletGroup::moveCircleOut(){
+ static int length = 0;
+ float angle = 0.0;
+ float angle_stepsize = 0.63;
+ int counter = 1;
+ for(auto &x:bGroup)
+    {
+        x.bPosX = length * cos (angle) + SCREEN_WIDTH / 2;
+        x.bPosY = length * sin (angle) + SCREEN_HEIGHT / 2;
+        ++counter;
+        angle += angle_stepsize;
+    }
+    ++length;
+    if (length > 400)
+     length = 0;
+}
+
+void BulletGroup::moveCircleIn(){
+ static int length = 200;
+ float angle = 0.0;
+ float angle_stepsize = 0.63;
+ int counter = 1;
+ for(auto &x:bGroup)
+    {
+        x.bPosX = length * cos (angle) + SCREEN_WIDTH / 2;
+        x.bPosY = length * sin (angle) + SCREEN_HEIGHT / 2;
+        ++counter;
+        angle += angle_stepsize;
+    }
+    --length;
+    if (length < 1)
+     length = 200;
 }
 
 void BulletGroup::moveStraight()
@@ -604,7 +640,7 @@ int main(int argc, char* args[])
             SDL_Event e;
             Start s;
             Player player;
-            BulletGroup lol, hey;
+            BulletGroup lol, hey, meh, pst;
 
             int scrollingOffset = 0;
 
@@ -616,9 +652,8 @@ int main(int argc, char* args[])
 
                 uint capTimer = SDL_GetTicks();
                 uint gameTimer = SDL_GetTicks() - initTimer;
-                printf("%u", gameTimer);
-                printf("\n");
-                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &hey) == true)))
+
+                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &hey) == true || player.collisionDetection(&player, &meh) == true  || player.collisionDetection(&player, &pst) == true )))
                   {
                       loadScore(player.getHits());
                   }
@@ -633,22 +668,29 @@ int main(int argc, char* args[])
                       s.click(e, player);
                       player.handleEvent(e);
                   }
-                  if (gameTimer < 5000) // in milliseconds :)
+                  if (gameTimer < 60000) // in milliseconds :)
                   {
 
                     for(static bool first = true;first;first=false){
-                      lol.setCircle();
-                    }
-                    lol.moveHorizontal();
-
-
-                    if (gameTimer > 4000){
-                      for(static bool first = true;first;first=false){
                         hey.setStraight();
                       }
                       hey.moveStraight();
+
+
+                    if (gameTimer > 4000){
+                       for(static bool first = true;first;first=false){
+                        meh.setHorizontal();
+                      }
+                      meh.moveHorizontal();
                     }
 
+                    if (gameTimer > 7000){
+                      lol.moveCircleOut();
+                    }
+
+                    if (gameTimer > 9000){
+                      pst.moveCircleIn();
+                    }
 
 
                     ++scrollingOffset;
@@ -668,6 +710,8 @@ int main(int argc, char* args[])
                     score.render(SCREEN_WIDTH - score.getWidth(),0);
                     lol.render();
                     hey.render();
+                    meh.render();
+                    pst.render();
 
 
                     SDL_RenderPresent(renderer);
