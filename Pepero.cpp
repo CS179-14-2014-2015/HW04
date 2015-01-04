@@ -12,6 +12,7 @@ const int SCREEN_FPS = 30;
 const int SCREEN_TICK_PER_FRAME = 1000 / SCREEN_FPS;
 int countedFrames = 0;
 
+
 SDL_Window* gWindow = nullptr;
 SDL_Renderer* renderer = nullptr;
 TTF_Font *font = nullptr;
@@ -403,6 +404,7 @@ void Start::click(SDL_Event &e, Player &p)
             {
                 start.free();
                 p.start = true;
+
             }
         }
     }
@@ -567,67 +569,77 @@ int main(int argc, char* args[])
         else
         {
             bool quit = false;
-            uint initTimer = SDL_GetTicks();
             SDL_Event e;
-
             Start s;
             Player player;
             BulletGroup lol, meh;
 
             int scrollingOffset = 0;
 
+            uint initTimer = SDL_GetTicks();
+
             while(!quit)
             {
                 loadBackground();
 
                 uint capTimer = SDL_GetTicks();
+                uint gameTimer = SDL_GetTicks() - initTimer;
+                printf("%u", gameTimer);
+                printf("\n");
+                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &meh)== true)))
+                  {
+                      loadScore(player.getHits());
+                  }
 
-                if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &meh)== true)))
-                {
-                    loadScore(player.getHits());
-                }
+                  while(SDL_PollEvent(&e) != 0)
+                  {
+                      if(e.type == SDL_QUIT)
+                      {
+                          quit = true;
+                      }
 
-                while(SDL_PollEvent(&e) != 0)
-                {
-                    if(e.type == SDL_QUIT)
+                      s.click(e, player);
+                      player.handleEvent(e);
+                  }
+                  if (gameTimer < 5000) // in milliseconds :)
+                  {
+                    lol.moveStraight();
+                    meh.moveCircular();
+
+                    ++scrollingOffset;
+                    if(scrollingOffset > background.getHeight())
                     {
-                        quit = true;
+                     scrollingOffset = 0;
                     }
 
-                    s.click(e, player);
-                    player.handleEvent(e);
+                    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(renderer);
+
+                    background.render(0, scrollingOffset);
+                    background.render(0, scrollingOffset - background.getHeight());
+
+                    player.render();
+                    s.render();
+                    score.render(SCREEN_WIDTH - score.getWidth(),0);
+                    lol.render();
+                    meh.render();
+
+                    SDL_RenderPresent(renderer);
+                    ++countedFrames;
+
                 }
-
-                lol.moveStraight();
-                meh.moveCircular();
-
-                ++scrollingOffset;
-				if(scrollingOffset > background.getHeight())
-				{
-					scrollingOffset = 0;
-				}
-
-                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                else {
+                // Game Over code here
                 SDL_RenderClear(renderer);
-
-                background.render(0, scrollingOffset);
-				background.render(0, scrollingOffset - background.getHeight());
-
-                player.render();
-                s.render();
-                score.render(SCREEN_WIDTH - score.getWidth(),0);
-                lol.render();
-                meh.render();
-
                 SDL_RenderPresent(renderer);
-                ++countedFrames;
-
-                //If frame finished early
+                }
                 if( capTimer < SCREEN_TICK_PER_FRAME )
                 {
                     //Wait remaining time
                     SDL_Delay( SCREEN_TICK_PER_FRAME - capTimer );
                 }
+
+
             }
         }
     }
