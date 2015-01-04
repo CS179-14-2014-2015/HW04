@@ -17,7 +17,7 @@ SDL_Window* gWindow = nullptr;
 SDL_Renderer* renderer = nullptr;
 TTF_Font *font = nullptr;
 
-class Texture
+class Texture //From LazyFoo productions
 {
     public:
         Texture();
@@ -141,10 +141,10 @@ int Texture::getWidth()
     return width;
 }
 
-bool init();
+bool init();  //From LazyFoo productions
 bool loadStart();
 bool loadScore(int hits);
-void close();
+void close();  //From LazyFoo productions
 double distanceSquared(int x1, int y1, int x2, int y2);
 
 Texture start;
@@ -165,13 +165,12 @@ class Bullet
         ~Bullet();
 
         int bPosX, bPosY;
-        int bInitX, bInitY;
 };
 
 Bullet::Bullet()
 {
-    bPosX = rand() % SCREEN_WIDTH;
-    bPosY = rand() % SCREEN_HEIGHT;
+    bPosX = 0;
+    bPosY = 0;
 }
 
 Bullet::~Bullet()
@@ -216,8 +215,11 @@ class BulletGroup
         std::vector<Bullet> bGroup;
 
         BulletGroup();
-        void moveCircular();
+        void moveHorizontal();
         void moveStraight();
+        void setStraight();
+        void setHorizontal();
+        void setCircle();
         void render();
         ~BulletGroup();
 };
@@ -232,24 +234,55 @@ BulletGroup::~BulletGroup()
 {
 }
 
-void BulletGroup::moveCircular()
+void BulletGroup::setHorizontal(){
+ int counter = 1;
+ for(auto &x:bGroup)
+    {
+        x.bPosX = 0;
+        x.bPosY = (SCREEN_HEIGHT/10)*counter - 30;
+        ++counter;
+    }
+}
+
+void BulletGroup::moveHorizontal()
 {
     for(auto &x:bGroup)
     {
-        static int bVelX = rand() % 3 - 1;
-        static int bVelY = rand() % 3 - 1;
-        x.move(bVelX, bVelY);
+        x.move(1, 0);
+    }
+}
+
+void BulletGroup::setStraight(){
+ int counter = 1;
+ for(auto &x:bGroup)
+    {
+        x.bPosX = (SCREEN_WIDTH/10)*counter - 30;
+        x.bPosY = 0;
+        ++counter;
+    }
+}
+
+void BulletGroup::setCircle(){
+ int counter = 1;
+ int x, y;
+ int length = 90;
+ float angle = 0.0;
+ float angle_stepsize = 0.63;
+
+ for(auto &x:bGroup)
+    {
+        x.bPosX = length * cos (angle);
+        x.bPosY = length * sin (angle) + SCREEN_HEIGHT / 2;
+        ++counter;
+        angle += angle_stepsize;
     }
 }
 
 void BulletGroup::moveStraight()
 {
-
     for(auto &x:bGroup)
     {
-        static int bVelX = rand() % 5 - 1;
-        static int bVelY = rand() % 5 - 1;
-        x.move(bVelX, bVelY);
+        x.move(0, 1);
     }
 }
 
@@ -571,7 +604,7 @@ int main(int argc, char* args[])
             SDL_Event e;
             Start s;
             Player player;
-            BulletGroup lol, meh;
+            BulletGroup lol, hey;
 
             int scrollingOffset = 0;
 
@@ -585,7 +618,7 @@ int main(int argc, char* args[])
                 uint gameTimer = SDL_GetTicks() - initTimer;
                 printf("%u", gameTimer);
                 printf("\n");
-                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &meh)== true)))
+                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &hey) == true)))
                   {
                       loadScore(player.getHits());
                   }
@@ -600,10 +633,23 @@ int main(int argc, char* args[])
                       s.click(e, player);
                       player.handleEvent(e);
                   }
-                  if (gameTimer < 60000) // in milliseconds :)
+                  if (gameTimer < 5000) // in milliseconds :)
                   {
-                    lol.moveStraight();
-                    meh.moveCircular();
+
+                    for(static bool first = true;first;first=false){
+                      lol.setCircle();
+                    }
+                    lol.moveHorizontal();
+
+
+                    if (gameTimer > 4000){
+                      for(static bool first = true;first;first=false){
+                        hey.setStraight();
+                      }
+                      hey.moveStraight();
+                    }
+
+
 
                     ++scrollingOffset;
                     if(scrollingOffset > background.getHeight())
@@ -621,17 +667,22 @@ int main(int argc, char* args[])
                     s.render();
                     score.render(SCREEN_WIDTH - score.getWidth(),0);
                     lol.render();
-                    meh.render();
+                    hey.render();
+
 
                     SDL_RenderPresent(renderer);
                     ++countedFrames;
 
                 }
+
                 else {
                 // Game Over code here
+                SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0xFF);
                 SDL_RenderClear(renderer);
                 SDL_RenderPresent(renderer);
+
                 }
+
                 if( capTimer < SCREEN_TICK_PER_FRAME )
                 {
                     //Wait remaining time
