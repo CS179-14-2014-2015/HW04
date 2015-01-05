@@ -1,6 +1,6 @@
 /*
 Compiled via command line using:
-	g++ main.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer -o main
+	g++ BulletHell.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer -o BulletHell
 	
 Future improvements:
 	Replace bullet frequency (int) and followPath (function) with index for two vectors (shot pattern and followPath)
@@ -15,7 +15,7 @@ Resources:
 		http://www.xnaresources.com/default.asp?page=Tutorial:StarDefense:3
 */
 
-//Using SDL, SDL_image, SDL_ttf, standard IO, strings, and string streams
+//Using SDL, SDL_image, SDL_ttf, SDL_mixer, standard IO, strings, and string streams
 
 
 #include <SDL2/SDL.h>
@@ -56,7 +56,7 @@ class LTexture{
 		
 		#ifdef _SDL_TTF_H
 		//Creates image from font string
-		bool loadFromRenderedText(std::string, SDL_Color);
+		bool loadFromRenderedText(std::string, SDL_Color, TTF_Font*);
 		#endif
 		
 		//Deallocates texture
@@ -256,11 +256,15 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 //The font
-TTF_Font* gFont = NULL;
+TTF_Font* gFontBasic = NULL;
+TTF_Font* gFontMain =  NULL;
 
 //The sound effects
 Mix_Chunk *gLow = NULL;
 Mix_Music *gBGMusic = NULL;
+
+//Main texture
+LTexture gMainTexture;
 
 //Playfield textures
 LTexture gBulletTexture;
@@ -299,6 +303,7 @@ int main(int argc, char *args[]){
 		}else{
 			//Main loop flag
 			bool quit = false;
+			bool start = false;
 			
 			//Event handler
 			SDL_Event e;
@@ -312,161 +317,164 @@ int main(int argc, char *args[]){
 			
 			std::stringstream scoreText;
 			std::stringstream timeText;
-			
-			gDurationTimer.start();
-			
+
 			//Spawn rate timer
 			LTimer spawnTimer;
-			spawnTimer.start();
 			
+
 			int spawnRate = 1500;
-			
+					
 			//While application is running
-			while(!quit){
-				//Keep running the program for 60 seconds
-				if(gDurationTimer.getTicks()/1000 >= 60){
-					gDurationTimer.pause();
-					gGameOver = true;
-				}
-				
+			while(!quit){									
 				//Handle events on queue
 				while(SDL_PollEvent(&e) != 0){
 					//User requests quit
 					if(e.type == SDL_QUIT){
 						quit = true;
 					}
-					
+					else if(e.type == SDL_KEYDOWN){
+						if(e.key.keysym.sym == SDLK_RETURN){
+							start = true;
+							gDurationTimer.start();
+							spawnTimer.start();
+							Mix_PlayChannel(-1, gLow, 0);
+						}
+					}
 					//Handle input from the player
 					player.move(&e);
 				}
-				
-				//Screen animation at end and restart of game
-				if(gGameOver && gBullets.empty()){
-					if(PLAYFIELD_WIDTH != 0){
-						PLAYFIELD_WIDTH -= 5;
-						SCOREBOARD_WIDTH += 5;
-					}
-				}else{
-					if(SCOREBOARD_WIDTH != 100){
-						SCOREBOARD_WIDTH -= 5;
-						PLAYFIELD_WIDTH += 5;
-						gDurationTimer.start();
-					}
-				}
 
-				//Background music
-				switch(gGameOver && gBullets.empty()){
-					case true:
-						Mix_HaltMusic();
-						break;
-					case false:
+				if(!start){
+					gMainTexture.render((SCREEN_WIDTH-gMainTexture.getWidth())/2, (SCREEN_HEIGHT-gMainTexture.getHeight())/2);
+				}
+				else{
+					//Keep running the program for 60 seconds
+					if(gDurationTimer.getTicks()/1000 >= 60){
+						gDurationTimer.pause();
+						gGameOver = true;
+					}
+					
+					//Screen animation at end and restart of game + Background music
+					if(gGameOver && gBullets.empty()){
+						if(PLAYFIELD_WIDTH != 0){
+							PLAYFIELD_WIDTH -= 5;
+							SCOREBOARD_WIDTH += 5;
+							Mix_HaltMusic();
+						}
+					}else{
+						if(SCOREBOARD_WIDTH != 100){
+							SCOREBOARD_WIDTH -= 5;
+							PLAYFIELD_WIDTH += 5;
+							gDurationTimer.start();
+						}
 						if(Mix_PlayingMusic() == 0){
 							Mix_PlayMusic(gBGMusic, -1);
 						}
 						else{
 							Mix_ResumeMusic();
 						}
-				}
-				
-				
-				SDL_Rect playfield = {0, 0, PLAYFIELD_WIDTH, SCREEN_HEIGHT};
-				SDL_Rect scoreboard = {PLAYFIELD_WIDTH, 0, SCOREBOARD_WIDTH, SCREEN_HEIGHT};
-				
-				//Clear screen
-				SDL_SetRenderDrawColor(gRenderer, 0xC8, 0x22, 0x22, 0xFF);
-				SDL_RenderClear(gRenderer);
-				
-				//Set the playfield viewport
-				SDL_RenderSetViewport(gRenderer, &playfield);
-				//Render the playfield
-				SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
-				SDL_RenderFillRect(gRenderer, &playfield);
-
-				//Scroll background
-				--scrollingOffset;
-				if(scrollingOffset < -gBGTexture.getHeight()){
-					scrollingOffset = 0;
-				}
-
-				//Render background
-				gBGTexture.render(0, scrollingOffset);
-				gBGTexture.render(0, scrollingOffset + gBGTexture.getHeight());		
-				
-				//Spawn enemy every "spawnRate" frames
-				if(spawnTimer.getTicks() >= spawnRate && !gGameOver && SCOREBOARD_WIDTH == 100){
-					static double xOffset = SCREEN_WIDTH/4;
-					
-					//Determines the position of enemy spawn
-					Enemy enemy(gDurationTimer.getTicks()/10000, xOffset+PLAYFIELD_WIDTH/2, -Enemy::ENEMY_HEIGHT);
-					gEnemies.push_back(enemy);
-					
-					//Change the xOffset
-					xOffset *= -1;
-					
-					//Restarts timer
-					spawnTimer.start();
-				}
-
-				for(int i = 0; i < gEnemies.size(); ++i){
-					//Move/rotate enemies
-					if(!gEnemies[i].move() || gGameOver){
-						gEnemies.erase(gEnemies.begin()+i);
-					}else{
-						//Shoot bullet;
-						gEnemies[i].shoot();
 					}
-				}
 				
-				player.render();
-				
-				for(int i = 0; i < gBullets.size(); ++i){
-					//Move the bullet
-					if(!gBullets[i].move() || checkCollision(player.getCollider(), gBullets[i].getCollider())){
-						gBullets.erase(gBullets.begin()+i);
-					}else{
-						//Render bullets
-						gBullets[i].render();
+					
+					SDL_Rect playfield = {0, 0, PLAYFIELD_WIDTH, SCREEN_HEIGHT};
+					SDL_Rect scoreboard = {PLAYFIELD_WIDTH, 0, SCOREBOARD_WIDTH, SCREEN_HEIGHT};
+					
+					//Clear screen
+					SDL_RenderClear(gRenderer);
+					
+					//Set the playfield viewport
+					SDL_RenderSetViewport(gRenderer, &playfield);
+
+					//Render the playfield
+					SDL_SetRenderDrawColor(gRenderer, 0xB4, 0xB4, 0xB4, 0xFF);
+					SDL_RenderFillRect(gRenderer, &playfield);
+
+					//Scroll background
+					--scrollingOffset;
+					if(scrollingOffset < -gBGTexture.getHeight()){
+						scrollingOffset = 0;
 					}
+
+					//Render background
+					gBGTexture.render(0, scrollingOffset);
+					gBGTexture.render(0, scrollingOffset + gBGTexture.getHeight());		
+					
+					//Spawn enemy every "spawnRate" frames
+					if(spawnTimer.getTicks() >= spawnRate && !gGameOver && SCOREBOARD_WIDTH == 100){
+						static double xOffset = SCREEN_WIDTH/4;
+						
+						//Determines the position of enemy spawn
+						Enemy enemy(gDurationTimer.getTicks()/10000, xOffset+PLAYFIELD_WIDTH/2, -Enemy::ENEMY_HEIGHT);
+						gEnemies.push_back(enemy);
+						
+						//Change the xOffset
+						xOffset *= -1;
+						
+						//Restarts timer
+						spawnTimer.start();
+					}
+
+					for(int i = 0; i < gEnemies.size(); ++i){
+						//Move/rotate enemies
+						if(!gEnemies[i].move() || gGameOver){
+							gEnemies.erase(gEnemies.begin()+i);
+						}else{
+							//Shoot bullet;
+							gEnemies[i].shoot();
+						}
+					}
+					
+					player.render();
+					
+					for(int i = 0; i < gBullets.size(); ++i){
+						//Move the bullet
+						if(!gBullets[i].move() || checkCollision(player.getCollider(), gBullets[i].getCollider())){
+							gBullets.erase(gBullets.begin()+i);
+						}else{
+							//Render bullets
+							gBullets[i].render();
+						}
+					}
+					
+					for(int i = 0; i < gEnemies.size(); ++i){
+						//Render enemies
+						gEnemies[i].render();
+					}
+					
+					SDL_RenderSetViewport(gRenderer, &scoreboard);
+					SDL_SetRenderDrawColor(gRenderer, 0xC8, 0x22, 0x22, 0xFF);
+					
+					scoreText.str("");
+					scoreText << gScore;
+					
+					//Render text
+					if(!gScoreTexture.loadFromRenderedText(scoreText.str().c_str(), textColor, gFontBasic)){
+						printf("Unable to render score texture!\n");
+					}
+					
+					//Render textures
+					gScoreTextTexture.render((SCOREBOARD_WIDTH-gScoreTextTexture.getWidth())/2, SCREEN_HEIGHT-2*gScoreTextTexture.getHeight());
+					gScoreTexture.render((SCOREBOARD_WIDTH-gScoreTexture.getWidth())/2, SCREEN_HEIGHT-gScoreTexture.getHeight());
+					
+					timeText.str("");
+					timeText << gDurationTimer.getTicks()/1000;
+					
+					//Render text
+					if(!gTimeTexture.loadFromRenderedText(timeText.str().c_str(), textColor, gFontBasic)){
+						printf("Unable to render time texture!\n");
+					}
+					
+					//Render textures
+					gTimeTextTexture.render((SCOREBOARD_WIDTH-gTimeTextTexture.getWidth())/2, 0);
+					gTimeTexture.render((SCOREBOARD_WIDTH-gTimeTexture.getWidth())/2, gTimeTexture.getHeight());
+					
+					//Render logo
+					gLogoTexture.render((SCOREBOARD_WIDTH-gLogoTexture.getWidth())/2, (SCREEN_HEIGHT-gLogoTexture.getHeight())/2, NULL, gLogoAngle);
+					
+					gLogoCollider.x = (SCOREBOARD_WIDTH)/2+PLAYFIELD_WIDTH;
+					gLogoCollider.y = (SCREEN_HEIGHT)/2;
+					gLogoCollider.r = gLogoTexture.getWidth()/2;
 				}
-				
-				for(int i = 0; i < gEnemies.size(); ++i){
-					//Render enemies
-					gEnemies[i].render();
-				}
-				
-				SDL_RenderSetViewport(gRenderer, &scoreboard);
-				
-				scoreText.str("");
-				scoreText << gScore;
-				
-				//Render text
-				if(!gScoreTexture.loadFromRenderedText(scoreText.str().c_str(), textColor)){
-					printf("Unable to render score texture!\n");
-				}
-				
-				//Render textures
-				gScoreTextTexture.render((SCOREBOARD_WIDTH-gScoreTextTexture.getWidth())/2, SCREEN_HEIGHT-2*gScoreTextTexture.getHeight());
-				gScoreTexture.render((SCOREBOARD_WIDTH-gScoreTexture.getWidth())/2, SCREEN_HEIGHT-gScoreTexture.getHeight());
-				
-				timeText.str("");
-				timeText << gDurationTimer.getTicks()/1000;
-				
-				//Render text
-				if(!gTimeTexture.loadFromRenderedText(timeText.str().c_str(), textColor)){
-					printf("Unable to render time texture!\n");
-				}
-				
-				//Render textures
-				gTimeTextTexture.render((SCOREBOARD_WIDTH-gTimeTextTexture.getWidth())/2, 0);
-				gTimeTexture.render((SCOREBOARD_WIDTH-gTimeTexture.getWidth())/2, gTimeTexture.getHeight());
-				
-				//Render logo
-				gLogoTexture.render((SCOREBOARD_WIDTH-gLogoTexture.getWidth())/2, (SCREEN_HEIGHT-gLogoTexture.getHeight())/2, NULL, gLogoAngle);
-				
-				gLogoCollider.x = (SCOREBOARD_WIDTH)/2+PLAYFIELD_WIDTH;
-				gLogoCollider.y = (SCREEN_HEIGHT)/2;
-				gLogoCollider.r = gLogoTexture.getWidth()/2;
-				
 				//Update screen
 				SDL_RenderPresent(gRenderer);
 			}
@@ -528,12 +536,12 @@ bool LTexture::loadFromFile(std::string path){
 }
 
 #ifdef _SDL_TTF_H
-bool LTexture::loadFromRenderedText(std::string textureText, SDL_Color textColor){
+bool LTexture::loadFromRenderedText(std::string textureText, SDL_Color textColor, TTF_Font* font){
 	//Get rid of preexisting texture
 	free();
 	
 	//Render text surface
-	SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, textureText.c_str(), textColor);
+	SDL_Surface* textSurface = TTF_RenderText_Solid(font, textureText.c_str(), textColor);
 	if(textSurface == NULL){
 		printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
 	}else{
@@ -931,6 +939,7 @@ bool init(){
 					printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
 					success = false;
 				}
+				//Initialize SDL_mixer
 				if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0)				{
 					printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
 					success = false;
@@ -946,6 +955,12 @@ bool loadMedia(){
 	//Loading success flag
 	bool success = true;
 	
+	//Load Main texture
+	if(!gMainTexture.loadFromFile("Resources/main.bmp")){
+		printf("Failed to load Main texture!\n");
+		success = false;
+	}
+
 	//Load bullet texture
 	if(!gBulletTexture.loadFromFile("Resources/bullet.bmp")){
 		printf("Failed to load bullet texture!\n");
@@ -989,22 +1004,27 @@ bool loadMedia(){
 	}
 	
 	//Open the font
-	gFont = TTF_OpenFont("Resources/consola.ttf", 28);
-	if(gFont == NULL){
+	gFontBasic = TTF_OpenFont("Resources/consola.ttf", 28);
+	gFontMain = TTF_OpenFont("Resources/ostrich.ttf", 50);
+	if(gFontBasic == NULL){
 		printf("Failed to load font! SDL_ttf Error: %s\n", TTF_GetError());
 		success = false;
-	}else{
+	}
+	if(gFontMain = NULL){
+		printf("Failed to load font! SDL_ttf Error: %s\n", TTF_GetError());
+		success = false;
+	}
+	else{
 		//Set text color
 		SDL_Color textColor = {0xD0, 0xD0, 0xD0, 0xFF};
-		
 		//Load 'time' texture
-		if(!gTimeTextTexture.loadFromRenderedText("TIME", textColor)){
+		if(!gTimeTextTexture.loadFromRenderedText("TIME", textColor, gFontBasic)){
 			printf("Unable to render 'time' texture!\n");
 			success = false;
 		}
 		
 		//Load 'score' texture
-		if(!gScoreTextTexture.loadFromRenderedText("HITS", textColor)){
+		if(!gScoreTextTexture.loadFromRenderedText("HITS", textColor, gFontBasic)){
 			printf("Unable to render 'time' texture!\n");
 			success = false;
 		}
@@ -1015,6 +1035,7 @@ bool loadMedia(){
 
 void close(){
 	//Free loaded images
+	gMainTexture.free();
 	gBulletTexture.free();
 	gEnemyTexture.free();
 	gPlayerTexture.free();
@@ -1024,16 +1045,17 @@ void close(){
 	gScoreTextTexture.free();
 	gLogoTexture.free();
 	
-	//Free global font
-	TTF_CloseFont(gFont);
-	gFont = NULL;
+	//Free global fonts
+	TTF_CloseFont(gFontBasic);
+	gFontBasic = NULL;
+	TTF_CloseFont(gFontMain);
+	gFontMain = NULL;
 	
 	//Free sound effects
 	Mix_FreeChunk(gLow);
-	//Mix_FreeChunk()
 	gLow = NULL;
 
-	//Free the music
+	//Free music
 	Mix_FreeMusic(gBGMusic);
 	gBGMusic = NULL;
 
