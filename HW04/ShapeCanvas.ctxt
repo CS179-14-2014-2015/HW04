@@ -1,0 +1,14 @@
+#BlueJ class context
+comment0.params=Scr_width\ Scr_height
+comment0.target=ShapeCanvas(int,\ int)
+comment1.params=g
+comment1.target=void\ paint(java.awt.Graphics)
+comment2.params=bullet
+comment2.target=void\ addBul(Bullet)
+comment3.params=
+comment3.target=Fighter\ getFight()
+comment4.params=
+comment4.target=void\ moveBul()
+comment5.params=
+comment5.target=int\ checkCollision()
+numComments=6

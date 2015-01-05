@@ -1,0 +1,8 @@
+#BlueJ class context
+comment0.params=x\ y\ scr_width\ scr_height
+comment0.target=Fighter(int,\ int,\ int,\ int)
+comment1.params=velx\ vely
+comment1.target=void\ move(int,\ int)
+comment2.params=g
+comment2.target=void\ draw(java.awt.Graphics)
+numComments=3
