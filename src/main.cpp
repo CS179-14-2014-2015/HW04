@@ -13,6 +13,7 @@ const int FPS = 60;
 bool running = false;
 char gen = '0';
 int score = 0;
+bool hit = false;
 int time = 0;
 int ptime = 0;
 
@@ -199,6 +200,7 @@ void physics(){
 		if(collide(p1,px[i])){
 			score++;
 			cout << "Times Hit: " << score << endl; 
+			hit = true;
 			px.erase(px.begin()+i);
 		}else if(px[i].y > HEIGHT + px[i].rad){
 			px.erase(px.begin()+i);
@@ -215,13 +217,17 @@ void physics(){
 }
 
 void render(){
-	SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+	if(hit) SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+	else SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
 	SDL_RenderClear(ren);
-	filledCircleColor(ren,p1.x,p1.y,p1.rad,p1.color);
+	if(hit) filledCircleColor(ren,p1.x,p1.y,p1.rad, 0xFFFFFFFF);
+	else filledCircleColor(ren,p1.x,p1.y,p1.rad,p1.color);
 	for(int i = 0; i < px.size(); i++){
 		//cout << i << " particle @ " << px[i].x << " " << px[i].y << endl;
-		filledCircleColor(ren, px[i].x, px[i].y, px[i].rad, px[i].color);
+		if(hit) filledCircleColor(ren, px[i].x, px[i].y, px[i].rad, 0xFFFFFFFF);
+		else filledCircleColor(ren, px[i].x, px[i].y, px[i].rad, px[i].color);
 	}
+	if(hit) hit = false;
 	SDL_RenderPresent(ren);
 	// #raffehpls
 	//cout << "SCORE: " << score << endl;
