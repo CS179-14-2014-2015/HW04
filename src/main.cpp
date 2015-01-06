@@ -14,6 +14,7 @@ bool running = false;
 char gen = '0';
 int score = 0;
 int time = 0;
+int ptime = 0;
 
 SDL_Window *win = NULL;
 SDL_Renderer *ren = NULL;
@@ -26,20 +27,16 @@ struct particle{
 	int rad;
 	Uint32 color;
 	char t;
+	int dt;
 	particle(){};
 	particle(char tt, int tx, int ty, int tvx, int tvy, int trad, Uint32 tcolor): t(tt), x(tx), y(ty), vx(tvx), vy(tvy), rad(trad), color(tcolor) {}
+
 };
 
-/*
-struct player{
-	int x, y;
-	int rad;
-	Uint32 color;
-};
-*/
 //create player here
 particle p1;
 vector<particle> px;
+vector<vector<particle>> sLine;
 
 bool collide(particle& bull, particle& play){
 	double radSum = bull.rad + play.rad + 0.0;
@@ -52,19 +49,51 @@ bool collide(particle& bull, particle& play){
 		return true;
 }
 //stage generation #raffehpls
-void generateLBeam(int rad){
-	px.push_back(*new particle('s', WIDTH/4, 0, 0, 1+2*rand()/RAND_MAX, rad, 0xFF000000));
-	px.push_back(*new particle('s', WIDTH*3/4, 0, 0, 1+2*rand()/RAND_MAX, rad, 0xFF000000));
+
+
+void generatePrime(){
+		ptime = time;
 }
-//stage generation #raffehpls
+
+
 void generateHBeam(int rad){
-	px.push_back(*new particle('0', 0, HEIGHT/4, 4, 2, rad, 0xFF000000));
-	px.push_back(*new particle('s', WIDTH, HEIGHT*3/4, -4, (sin(time*1.0)+1)*5, rad, 0xFF000000));
+	px.push_back(*new particle('a', 0, 0, 2, 0, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('a', 0, HEIGHT/4, 2, 0, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('a', 0, HEIGHT*1/2, 2, 0, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('a', 0, HEIGHT*3/4, 2, 0, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('a', 0, HEIGHT, 2, 0, rad, 0xFF000000));
+	px.back().dt = ptime;
 }
+
+void generateSBeam(int rad){
+	px.push_back(*new particle('b', 0, 0, 0, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('b', WIDTH/4, 0, 0, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('b', WIDTH*1/2, 0, 0, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('b', WIDTH*3/4, 0, 0, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('b', WIDTH, 0, 0, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+}
+
+
+void generateXBeam(int rad){
+	px.push_back(*new particle('x',0, 0, 2, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+	px.push_back(*new particle('y',WIDTH,0, -2, 2, rad, 0xFF000000));
+	px.back().dt = ptime;
+}
+
+
 
 bool init(){
 	bool run = true;
-
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0){
 		std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
 		run = false;
@@ -83,7 +112,6 @@ bool init(){
 		run = false;
 	}
 	SDL_ShowCursor(SDL_DISABLE);
-
 	return run;
 }
 
@@ -96,7 +124,6 @@ void setup(){
 
 void input(SDL_Event& ev){
 	SDL_GetMouseState(&p1.x,&p1.y);
-	//std::cout << p1.x << " " << p1.y << " \n";
 	while(SDL_PollEvent(&ev) != 0) {
 		if(ev.type == SDL_QUIT) running = false;
 		else if(ev.type == SDL_KEYDOWN){
@@ -113,43 +140,73 @@ void input(SDL_Event& ev){
 }
 
 void physics(){
+	//cout << "Size Now is" << px.size() << " \n";
 	if(gen == '0'){
-
-		//stage generation #raffehpls
-		if(time < 200){
-			if(time % 60 == 0){
-				generateLBeam(5);
-				//gen = '0';
+		if(time < 10){
+			if(time % 10 == 0){
+				generatePrime();
 			}
-		}else if(time < 1000){
-			if(time % 30 == 0){
-				generateHBeam(5);
-				//gen = '0';
+		}else if(time < 1100){
+			if(time % 10 == 0){
+				generateXBeam(5);
 			}
 		}
-		
+		else if(time < 1200){}
+		else if(time < 1210){
+			if(time % 10 == 0){
+				generatePrime();
+			}
+		}else if(time < 2300){
+			if(time % 10 == 0){
+				generateHBeam(5);
+			}
+		}
+		else if( time < 2400){}
+		else if( time < 2410) {
+			if(time % 10 == 0){
+				generatePrime();
+			}
+		}
+		else if( time < 3500){
+			if ( time % 10 == 0){
+				generateSBeam(5);
+			}
+		}else if( time < 3600){}
+		else{
+			running = false;
+		}
+	}
+	
+	for(int i = 0; i < px.size(); i++){
+		if (px[i].t == 'a'){
+			px[i].vy = sin(time/20.0*1.0)*2.0+sin(px[i].dt++/20.0*M_PI)*5.0;
+		}else if(px[i].t == 'b'){
+			px[i].vx = sin(time/20.0*1.0)+sin(px[i].dt++/20.0*M_PI)*5.0;
+		}
+		else if(px[i].t == 'x'){
+			px[i].vx += sin(time/20.0*1.0)*rand()/RAND_MAX+sin(px[i].dt++/20.0*M_PI)*1.0;
+			//px[i].vy *= sin(time/20.0*M_PI)*5.0;
+		}
+		else if(px[i].t == 'y'){
+			px[i].vx -= sin(time/20.0*1.0)*rand()/RAND_MAX+sin(px[i].dt++/20.0*M_PI)*1.0;
+			//px[i].vy *= sin(px[i].dt++/20.0*M_PI)*5.0;
+		}
 	}
 
-	//sine wave ish #raffehpls
-	for(int i = 0; i < px.size(); i++){
-		if(px[i].t == 's'){
-			px[i].vx = sin(time/20.0*M_PI)*5.0;
-			//cout << sin(time/120.0*M_PI) <<" HEYY " << px[i].vx << endl;
-		}		
-	}
-
-	for(int i = 0; i < px.size(); i++){
+	for(int i = 0; i < px.size(); i++){//collision detection
 		px[i].x += px[i].vx;
 		px[i].y += px[i].vy;
-
 		if(collide(p1,px[i])){
 			score++;
+			cout << "Times Hit: " << score << endl; 
 			px.erase(px.begin()+i);
 		}else if(px[i].y > HEIGHT + px[i].rad){
 			px.erase(px.begin()+i);
-		}else if(px[i].x < -px[i].rad){
+		}
+		/*else if(px[i].x < -px[i].rad){
 			px.erase(px.begin()+i);
-		}else if(px[i].x > WIDTH + px[i].rad){
+		}*/
+		else if(px[i].x > WIDTH + px[i].rad && (px[i].t == 'a' )){
 			px.erase(px.begin()+i);
 		}
 	}
@@ -167,7 +224,7 @@ void render(){
 	}
 	SDL_RenderPresent(ren);
 	// #raffehpls
-	cout << "SCORE: " << score << endl;
+	//cout << "SCORE: " << score << endl;
 }
 
 int main( int argc, char* args[] ){
@@ -182,15 +239,17 @@ int main( int argc, char* args[] ){
 	while (running) {
 		// time here
 		start = SDL_GetTicks();
-		//cout << start << endl;
 		input(ev);
+		//cout << "input lag: " << SDL_GetTicks()<< endl;
 		physics();
+		//cout << "phy lag: " << SDL_GetTicks()<< endl;
 		render();
-
-		//time here
+		//cout << "render lag: " << SDL_GetTicks()<< endl;
+		
 		if(1000/FPS > (SDL_GetTicks() - start)){
 			SDL_Delay(1000/FPS - (SDL_GetTicks() - start));
 		}
+		
 		time++;
 	}
 	SDL_DestroyRenderer(ren);

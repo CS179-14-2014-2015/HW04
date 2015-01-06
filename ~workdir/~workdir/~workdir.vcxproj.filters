@@ -36,7 +36,7 @@
     <ClCompile Include="..\SDL2\SDL2_gfx-1.0.1\SDL2_imageFilter.c">
       <Filter>Resource Files\SDL2_gfx</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\..\Downloads\01_hello_SDL\01_hello_SDL\01_hello_SDL.cpp">
+    <ClCompile Include="..\..\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

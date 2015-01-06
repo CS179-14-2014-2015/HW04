@@ -38,7 +38,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
+    <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(SolutionDir)\SDL2\SDL2_gfx-1.0.1;$(SolutionDir)\SDL2\SDL2-2.0.3\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\SDL2\SDL2-2.0.3\lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -77,7 +77,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\..\..\Downloads\01_hello_SDL\01_hello_SDL\01_hello_SDL.cpp" />
+    <ClCompile Include="..\..\src\main.cpp" />
     <ClCompile Include="..\SDL2\SDL2_gfx-1.0.1\SDL2_framerate.c" />
     <ClCompile Include="..\SDL2\SDL2_gfx-1.0.1\SDL2_gfxPrimitives.c" />
     <ClCompile Include="..\SDL2\SDL2_gfx-1.0.1\SDL2_imageFilter.c" />
