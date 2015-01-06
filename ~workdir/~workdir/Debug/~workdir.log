@@ -1,0 +1,35 @@
+﻿Build started 2015-01-06 11:47:29.
+     1>Project "C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\~workdir\~workdir.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Creating "Debug\~workdir.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\src\main.cpp
+         main.cpp
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(181): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(183): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(185): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(188): warning C4244: '+=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(192): warning C4244: '-=' : conversion from 'double' to 'int', possible loss of data
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(197): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(225): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\raffeh\desktop\gitclone2\hw04\src\main.cpp(264): warning C4715: 'SDL_main' : not all control paths return a value
+         All outputs are up-to-date.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\Debug\~workdir.exe" /INCREMENTAL:NO /NOLOGO SDL2.lib SDL2main.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\~workdir.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\Debug\~workdir.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\Debug\~workdir.lib" /MACHINE:X86 Debug\main.obj
+         Debug\SDL2_framerate.obj
+         Debug\SDL2_gfxPrimitives.obj
+         Debug\SDL2_imageFilter.obj
+         Debug\SDL2_rotozoom.obj
+     1>main.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/INCREMENTAL:NO' specification
+     1>MSVCRTD.lib(cinitexe.obj) : warning LNK4098: defaultlib 'msvcrt.lib' conflicts with use of other libs; use /NODEFAULTLIB:library
+         ~workdir.vcxproj -> C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\Debug\~workdir.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\Debug\~workdir.exe;#1" /manifest "Debug\~workdir.exe.intermediate.manifest"
+       FinalizeBuildStatus:
+         Deleting file "Debug\~workdir.unsuccessfulbuild".
+         Touching "Debug\~workdir.lastbuildstate".
+     1>Done Building Project "C:\Users\Raffeh\Desktop\GitClone2\HW04\~workdir\~workdir\~workdir.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.75
