@@ -11,7 +11,7 @@ const int SCREEN_HEIGHT = 480;
 const int SCREEN_FPS = 30;
 const int SCREEN_TICK_PER_FRAME = 1000 / SCREEN_FPS;
 int countedFrames = 0;
-
+uint initTimer = 0;
 
 SDL_Window* gWindow = nullptr;
 SDL_Renderer* renderer = nullptr;
@@ -159,7 +159,7 @@ class Bullet
 
         Bullet();
         void move(int x, int y);
-        void render();
+        void render(int blue = 0xFF);
         int getX();
         int getY();
         void Destroy();
@@ -170,8 +170,8 @@ class Bullet
 
 Bullet::Bullet()
 {
-    bPosX = 0;
-    bPosY = 0;
+    bPosX = -10;
+    bPosY = -10;
 }
 
 Bullet::~Bullet()
@@ -190,9 +190,10 @@ void Bullet::move(int x, int y)
     }
 }
 
-void Bullet::render()
+void Bullet::render(int blue)
 {
-    filledCircleRGBA(renderer, bPosX, bPosY, bRadius, 0xFF,0x0,0x0,0xFF);
+    filledCircleRGBA(renderer, bPosX, bPosY, bRadius, 0xFF,0x0,blue,0xFF);
+
 }
 
 int Bullet::getX()
@@ -223,7 +224,7 @@ class BulletGroup
         void setStraight();
         void setHorizontal();
         void setCircle();
-        void render();
+        void render(int blue = 0xFF);
         ~BulletGroup();
 };
 
@@ -274,8 +275,8 @@ void BulletGroup::setCircle(){
 
  for(auto &x:bGroup)
     {
-        x.bPosX = length * cos (angle) + SCREEN_WIDTH / 2;
-        x.bPosY = length * sin (angle) + SCREEN_HEIGHT / 2;
+        x.bPosX = length * cos (angle) + 0;
+        x.bPosY = (length * sin (angle)) + SCREEN_HEIGHT / 2;
         ++counter;
         angle += angle_stepsize;
     }
@@ -323,10 +324,10 @@ void BulletGroup::moveStraight()
     }
 }
 
-void BulletGroup::render()
+void BulletGroup::render(int blue)
 {
     for(auto &x:bGroup)
-        x.render();
+        x.render(blue);
 }
 
 class Player
@@ -472,7 +473,7 @@ void Start::click(SDL_Event &e, Player &p)
             {
                 start.free();
                 p.start = true;
-
+                initTimer = SDL_GetTicks();
             }
         }
     }
@@ -665,20 +666,23 @@ int main(int argc, char* args[])
             SDL_Event e;
             Start s;
             Player player;
-            BulletGroup lol, hey, meh, pst;
+            BulletGroup lol, hey, meh, pst, hi;
 
             int scrollingOffset = 0;
-
-            uint initTimer = SDL_GetTicks();
 
             while(!quit)
             {
                 loadBackground();
 
                 uint capTimer = SDL_GetTicks();
-                uint gameTimer = SDL_GetTicks() - initTimer;
+                uint gameTimer = 0;
 
-                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &hey) == true || player.collisionDetection(&player, &meh) == true  || player.collisionDetection(&player, &pst) == true )))
+                  if (player.hasStarted())
+                  {
+                   gameTimer = SDL_GetTicks() - initTimer;
+                  }
+
+                  if (player.hasStarted() && ((player.collisionDetection(&player, &lol) == true || player.collisionDetection(&player, &hey) == true || player.collisionDetection(&player, &hi) == true || player.collisionDetection(&player, &meh) == true  || player.collisionDetection(&player, &pst) == true )))
                   {
                       loadScore(player.getHits());
                   }
@@ -693,30 +697,38 @@ int main(int argc, char* args[])
                       s.click(e, player);
                       player.handleEvent(e);
                   }
-                  if (gameTimer < 60000) // in milliseconds :)
+                  if (gameTimer < 60000 ) // in milliseconds :)
                   {
+                    if (gameTimer > 1){
+                     for(static bool first = true;first;first=false){
+                         hey.setStraight();
+                       }
+                       hey.moveStraight();
 
-                    for(static bool first = true;first;first=false){
-                        hey.setStraight();
-                      }
-                      hey.moveStraight();
 
+                     if (gameTimer > 4000){
+                        for(static bool first = true;first;first=false){
+                         meh.setHorizontal();
+                       }
+                       meh.moveHorizontal();
+                     }
 
-                    if (gameTimer > 4000){
+                     if (gameTimer > 8000){
                        for(static bool first = true;first;first=false){
-                        meh.setHorizontal();
-                      }
-                      meh.moveHorizontal();
-                    }
+                         hi.setCircle();
+                       }
+                       hi.moveHorizontal();
 
-                    if (gameTimer > 7000){
-                      lol.moveCircleOut();
-                    }
+                     }
 
-                    if (gameTimer > 9000){
-                      pst.moveCircleIn();
-                    }
+                     if (gameTimer > 11000){
+                       lol.moveCircleOut();
+                     }
 
+                     if (gameTimer > 15000){
+                       pst.moveCircleIn();
+                     }
+                    }
 
                     ++scrollingOffset;
                     if(scrollingOffset > background.getHeight())
@@ -733,10 +745,11 @@ int main(int argc, char* args[])
                     player.render();
                     s.render();
                     score.render(SCREEN_WIDTH - score.getWidth(),0);
-                    lol.render();
                     hey.render();
                     meh.render();
-                    pst.render();
+                    pst.render(0x00);
+                    lol.render(0x00);
+                    hi.render();
 
 
                     SDL_RenderPresent(renderer);
