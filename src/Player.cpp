@@ -20,15 +20,9 @@ Player::Player(RenderWindow &window) : window(window) {
 	}
 	setTexture(playerTexture);
 
-	//center origin, position and  initialize flags
+	//initialize the player
 	setOrigin(getGlobalBounds().width / 2, getGlobalBounds().height / 2);
-	setPosition(getGlobalBounds().width / 2, window.getSize().y / 2);
-	isMovingUp = false;
-	isMovingDown = false;
-	isMovingLeft = false;
-	isMovingRight = false;
-	isFadingIn = false;
-	isFadingOut = false;
+	restart();
 }
 
 void Player::update() {
@@ -114,6 +108,24 @@ void Player::fire() {
 	bullets.push_back(playerBullet);
 }
 
+void Player::getHit() {
+
+	//blink animation
+	if(isFadingIn == false && isFadingOut == false)
+		isFadingIn = true;
+
+	//decrease the shield
+	shield--;
+}
+
+bool Player::isDead() {
+	return shield < 1;
+}
+
+void Player::increaseScore(unsigned short point) {
+	score += point;
+}
+
 list<Bullet>& Player::getBullets() {
 	return bullets;
 }
@@ -135,10 +147,6 @@ void Player::clearBullets(){
 	}
 }
 
-void Player::blink() {
-	if(isFadingIn == false && isFadingOut == false)
-		isFadingIn = true;
-}
 
 void Player::moveBullets() {
 
@@ -148,3 +156,22 @@ void Player::moveBullets() {
 		window.draw(*it);
 	}
 }
+
+void Player::restart() {
+	setPosition(getGlobalBounds().width / 2, window.getSize().y / 2);
+	isMovingUp = false;
+	isMovingDown = false;
+	isMovingLeft = false;
+	isMovingRight = false;
+	isFadingIn = false;
+	isFadingOut = false;
+	shield = 10;
+	score = 0;
+	bullets.clear();
+	setColor(Color(255, 255, 255, 255));
+}
+
+unsigned int Player::getScore() {
+	return score;
+}
+

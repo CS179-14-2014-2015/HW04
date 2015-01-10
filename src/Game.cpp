@@ -10,24 +10,29 @@
 Game::Game() : window(VideoMode(900, 500), "ASEC Shooter", Style::Close | Style::Titlebar), background(window),
 				player(window), enemiesManager(window){
 	window.setFramerateLimit(25);
+	gameIsOver = false;
 }
 
 void Game::update(){
 
-	/*
-	//Check enough time elapsed to have 25fps
-	if(clock.getElapsedTime().asMilliseconds() < 40)
-		return;
-	clock.restart();
-	*/
-
 	//clear the window
 	window.clear();
 
-	//update the drawables
-	background.update();
-	player.update();
-	enemiesManager.update(player);
+	//check if game is over
+	if(player.isDead())
+		gameIsOver = true;
+
+	//display score
+	if(gameIsOver) {
+		displayScore(player.getScore());
+	}
+
+	//display the game
+	else {
+        background.update();
+        player.update();
+        enemiesManager.update(player);
+	}
 
 	//display
 	window.display();
@@ -69,12 +74,44 @@ void Game::run(){
             if(event.type == Event::KeyReleased && event.key.code == Keyboard::Right)
             	player.setIsMovingRight(false);
 
+            //Restart
+            if(gameIsOver && event.type == Event::KeyReleased && event.key.code == Keyboard::Return) {
+            	gameIsOver = false;
+            	player.restart();
+            	enemiesManager.restart();
+            }
         }
 
         //Update
         update();
 	}
 }
+
+void Game::displayScore(const unsigned int& score) {
+
+	//variables
+	Text text;
+	Font font;
+	string tmpScore= static_cast<ostringstream*>( &(ostringstream() << score) )->str();
+	string message = "Score : " + tmpScore + "\nPress Enter to restart.";
+
+	//load font
+	if(!font.loadFromFile("resources/Capture_it.ttf")) {
+		std::cout << "Capture_it.ttf not found." << std::endl;
+	}
+
+	//Set text
+	text.setFont(font);
+	text.setColor(Color::White);
+	text.setString(message);
+	text.setCharacterSize(40);
+	text.setOrigin(text.getGlobalBounds().width / 2, text.getGlobalBounds().height / 2);
+	text.setPosition(window.getSize().x /2, window.getSize().y / 2);
+
+	//draw the text
+	window.draw(text);
+}
+
 
 
 

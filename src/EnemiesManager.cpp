@@ -9,6 +9,10 @@
 
 EnemiesManager::EnemiesManager(RenderWindow &window) : window(window){
 
+	//Initialize the sound
+	buffer.loadFromFile("resources/boum.wav");
+	sound.setBuffer(buffer);
+
 	//load the textures, alert if failed
 	if(!enemyTexture.loadFromFile("resources/enemy.png")) {
 		cout<< "Impossible to load enemy.png" <<endl;
@@ -35,6 +39,7 @@ void EnemiesManager::fire(Vector2f const &player) {
 void EnemiesManager::moveBullets() {
 
 	//move all the bullets and draw them
+
 	for(list<Bullet>::iterator it = bullets.begin(); it != bullets.end(); it++) {
 		it->move(it->getXspeed(), it->getYspeed());
 		it->rotate(it->getSpin());
@@ -61,21 +66,23 @@ void EnemiesManager::moveEnemies() {
 
 void EnemiesManager::checkBullet(Player& player) {
 
-	//check collision with player
+	//check the enemies bullets collisions with the player
 	for(list<Bullet>::iterator it = bullets.begin(); it != bullets.end(); it++) {
 		if(it->getGlobalBounds().intersects(player.getGlobalBounds())) {
 			it = bullets.erase(it);
-			player.blink();
+			player.getHit();
+			if(player.isDead())
+				sound.play();
 		}
 	}
 }
 
 void EnemiesManager::checkEnemies(Player& player) {
 
-	//check collision with player
+	//check the enemies collision with the player
 	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++) {
 		if(it->getGlobalBounds().intersects(player.getGlobalBounds())) {
-			player.blink();
+			player.getHit();
 			it = enemies.erase(it);
 		}
 	}
@@ -85,7 +92,7 @@ void EnemiesManager::update(Player &player){
 	frameCounter++;
 
 	//check  collisions
-	checkPlayerBullets(player.getBullets());
+	checkPlayerBullets(player);
 	checkBullet(player);
 	checkEnemies(player);
 
@@ -122,18 +129,33 @@ void EnemiesManager::clearEnemies(){
 
 	//delete all the dead enemies
 	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++){
-		if(it->isDead())
+		if(it->isDead()) {
 			it = enemies.erase(it);
+			sound.play();
+		}
 	}
 }
 
-void EnemiesManager::checkPlayerBullets(list<Bullet> &playerBullets){
+void EnemiesManager::checkPlayerBullets(Player &player){
 
 	//test all the enemies
 	for(list<Enemy>::iterator it = enemies.begin(); it != enemies.end(); it++) {
-		it->checkPlayerBullets(playerBullets);
+		it->checkPlayerBullets(player.getBullets());
+
+		//handle enemies killed
+		if(it->isDead()) {
+			player.increaseScore(1);
+			it = enemies.erase(it);
+			sound.play();
+		}
 	}
 }
+
+void EnemiesManager::restart() {
+	enemies.clear();
+	bullets.clear();
+}
+
 
 
 
